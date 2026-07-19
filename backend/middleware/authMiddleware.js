@@ -1,8 +1,15 @@
 import jwt from "jsonwebtoken";
 
-function requireAuth(req, res, next) {
+// Prefer the httpOnly cookie; fall back to a bearer header for non-browser clients.
+function extractToken(req) {
+  const cookieToken = req.cookies && req.cookies.access_token;
+  if (cookieToken) return cookieToken;
   const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.split(" ")[1];
+  return authHeader && authHeader.split(" ")[1];
+}
+
+function requireAuth(req, res, next) {
+  const token = extractToken(req);
 
   if (!token) {
     return res

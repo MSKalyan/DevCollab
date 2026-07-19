@@ -27,7 +27,8 @@ import pkg from 'pg';
 const { Pool } = pkg;
 
 const pool = new Pool({
-  connectionString: process.env.DB_URL,
+  connectionString: process.env.DATABASE_URL,
+  family: 4,
   ssl: {
     rejectUnauthorized: false,
   },

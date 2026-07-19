@@ -8,13 +8,14 @@ function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const googleClientId = null; // Google auth temporarily disabled
+
 
  const handleSubmit = async (e) => {
   e.preventDefault();
 
   try {
     const res = await api.post("/auth/login", { email, password });
-    localStorage.setItem("token", res.data.token);
     navigate("/blogs");
   } catch (err) {
     setError(err.response?.data?.message || "Login failed");
@@ -25,23 +26,24 @@ function Login() {
   return (
     <div style={{ maxWidth: "400px", margin: "2rem auto" }}>
       <h2>Login</h2>
-      <GoogleLogin
-  onSuccess={async (credentialResponse) => {
-    try {
-      const res = await api.post("/auth/google", {
-        credential: credentialResponse.credential,
-      });
-      localStorage.setItem("token", res.data.token);
-      navigate("/blogs");
-    } catch (err) {
-      console.log(err);
-      setError("Google login failed");
-    }
-  }}
-  onError={() => {
-    setError("Google login failed");
-  }}
-/>
+      {googleClientId && (
+        <GoogleLogin
+          onSuccess={async (credentialResponse) => {
+            try {
+              const res = await api.post("/auth/google", {
+                credential: credentialResponse.credential,
+              });
+              navigate("/blogs");
+            } catch (err) {
+              console.log(err);
+              setError("Google login failed");
+            }
+          }}
+          onError={() => {
+            setError("Google login failed");
+          }}
+        />
+      )}
       {error && <p style={{ color: "red" }}>{error}</p>}
 
       <form onSubmit={handleSubmit}>

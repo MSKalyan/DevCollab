@@ -8,20 +8,21 @@ export const getAllUsers = async (page, limit, search, role) => {
       WHERE name != 'admin'
       AND (name ILIKE $1 OR email ILIKE $1)
     `;
-  
+
     if (role) {
-      query += ` AND role = '${role}'`;
+      query += ` AND role = $4`;
+      values.push(role);
     }
-  
+
     query += ` ORDER BY id LIMIT $2 OFFSET $3`;
-  
+
     const result = await pool.query(query, values);
     return result.rows;
   };
   
   export const getUserBlogs = async (id, page, limit, search, category) => {
     const offset = (page - 1) * limit;
-  
+
     const query = `
       SELECT * FROM blogs
       WHERE author = $1
@@ -30,10 +31,15 @@ export const getAllUsers = async (page, limit, search, role) => {
       ORDER BY created_at DESC
       LIMIT $4 OFFSET $5
     `;
-  
+
     const result = await pool.query(query, [id, `%${search}%`, category, limit, offset]);
-  
+
     return result.rows;
+  };
+
+  export const getUserNameById = async (id) => {
+    const result = await pool.query('SELECT name FROM users WHERE id = $1', [id]);
+    return result.rows[0]?.name;
   };
   
   

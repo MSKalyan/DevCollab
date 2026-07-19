@@ -1,5 +1,5 @@
 import express from "express";
-import { postLogin, postRegister, logout,updateProfile, googleLogin } from "../controllers/authController.js";
+import { postLogin, postRegister, logout, updateProfile, googleLogin, refresh } from "../controllers/authController.js";
 import requireAuth from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -7,10 +7,10 @@ const router = express.Router();
 router.post("/login", postLogin);
 router.post("/register", postRegister);
 router.post("/logout", logout);
-router.post("/google",googleLogin);
+router.post("/google", googleLogin);
+router.post("/refresh", refresh);
 // 🔴 REQUIRED
 router.get("/me", requireAuth, (req, res) => {
-  console.log("ME endpoint hit");
   res.json({
     id: req.user.id,
     name: req.user.name,

@@ -1,6 +1,11 @@
 import { createBlog, getAllBlogs, getAllMyBlogs, getBlogById, updateBlog, deleteBlog as deleteBlogFromModel } from '../models/blogModel.js';
 import pool from "../models/db.js";
 
+// Admins may act on any blog; regular users are limited to their own.
+function isAdmin(req) {
+  return req.user && req.user.role === "admin";
+}
+
 // Controller to render the page for creating a new blog post
 export const getCreateBlog = async (req, res) => {
   const { title, content, category } = req.body;
@@ -187,7 +192,7 @@ export const getEditBlog = async (req, res) => {
     }
 
     // Authorization check
-    if (blog.author !== req.user.id) {
+    if (blog.author !== req.user.id && !isAdmin(req)) {
       return res.status(403).json({
         success: false,
         message: 'You can only edit your own blogs'
@@ -221,6 +226,11 @@ export const postEditBlog = async (req, res) => {
       return res.status(404).send('Blog not found');
     }
 
+    // Authorization check
+    if (blog.author !== req.user.id && !isAdmin(req)) {
+      return res.status(403).send('You can only edit your own blogs');
+    }
+
     // Update the blog with new data
     const updatedBlog = await updateBlog(id, title, content); // Use the updateBlog function from the model
     res.json({success:true,data:updatedBlog.id}); // Redirect to the individual blog post after editing
@@ -241,7 +251,7 @@ export const handleDeleteBlog = async (req, res) => {
     }
 
     // Check if the logged-in user is the author of the blog
-    if (blog.author !== req.user.id) {
+    if (blog.author !== req.user.id && !isAdmin(req)) {
       return res.status(403).send('You can only delete your own blogs');
     }
 

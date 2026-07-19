@@ -1,10 +1,30 @@
 import bcrypt from "bcryptjs";
-import jwt from 'jsonwebtoken';
 import pool from '../models/db.js'; // database connection
 import { OAuth2Client } from "google-auth-library";
+import {
+  signAccessToken,
+  createRefreshToken,
+  setAuthCookies,
+  clearAuthCookies,
+} from "../utils/tokenUtils.js";
+import {
+  storeRefreshToken,
+  findRefreshToken,
+  deleteRefreshToken,
+  deleteAllUserRefreshTokens,
+} from "../models/refreshTokenModel.js";
 
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// Issue access + refresh tokens and attach them as httpOnly cookies.
+async function issueTokens(res, user) {
+  const accessToken = signAccessToken(user);
+  const { token: refreshToken, expiresAt } = createRefreshToken();
+  await storeRefreshToken(user.id, refreshToken, expiresAt);
+  setAuthCookies(res, accessToken, refreshToken, expiresAt);
+  return accessToken;
+}
 
 export const googleLogin = async (req, res) => {
   const { credential } = req.body;
@@ -39,14 +59,10 @@ console.log("Google credential received:", credential);
       user = userResult.rows[0];
     }
 
-    // ✅ Create your app JWT token
-    const token = jwt.sign(
-      { id: user.id, name: user.name, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
+    // ✅ Create your app JWT token (set as httpOnly cookies)
+    await issueTokens(res, user);
 
-    return res.json({ success: true, message: "Google login successful", token });
+    return res.json({ success: true, message: "Google login successful" });
   } catch (err) {
     console.error(err);
     return res.status(401).json({ message: "Invalid Google token" });
@@ -75,14 +91,13 @@ export const postLogin = async (req, res) => {
       return res.status(400).send('Invalid credentials');
     }
 
-    // Generate JWT token
-    const token = jwt.sign({ id: user.id, name: user.name, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    // Generate JWT tokens (set as httpOnly cookies)
+    await issueTokens(res, user);
 
 res.json({
   success: true,
   message: "Login successful",
-  role: user.role,
-  token
+  role: user.role
 });
 
 }
@@ -115,16 +130,76 @@ export const postRegister = async (req, res) => {
 
     const newUser = result.rows[0];
 
-    res.status(201).json({success:true,message:'User registered successfully',
-data:newUser});
+    // Generate JWT tokens (set as httpOnly cookies)
+    await issueTokens(res, newUser);
+
+    res.status(201).json({success:true,message:'User registered successfully'});
   } catch (error) {
     console.error('Error registering user:', error);
     res.status(500).send('Error registering user.');
   }
 };
 
-export const logout = (req, res) => {
-  res.json({success:true,message:"Logged out successfully"});
+export const logout = async (req, res) => {
+  try {
+    const refreshToken = req.cookies.refresh_token;
+    if (refreshToken) {
+      // Revoke the refresh token so any copied JWT can no longer be refreshed.
+      await deleteRefreshToken(refreshToken);
+    }
+    if (req.user && req.user.id) {
+      // Revoke every refresh token for the user as a safety measure.
+      await deleteAllUserRefreshTokens(req.user.id);
+    }
+  } catch (err) {
+    console.error("Logout error:", err);
+  }
+
+  // Clear the auth cookies so the browser drops them.
+  clearAuthCookies(res);
+  return res.json({ success: true, message: "Logged out successfully" });
+};
+
+// Rotate the access token using a valid refresh token cookie.
+export const refresh = async (req, res) => {
+  const refreshToken = req.cookies.refresh_token;
+
+  if (!refreshToken) {
+    return res.status(401).json({ success: false, message: "No refresh token" });
+  }
+
+  const stored = await findRefreshToken(refreshToken);
+  if (!stored) {
+    clearAuthCookies(res);
+    return res
+      .status(401)
+      .json({ success: false, message: "Invalid refresh token" });
+  }
+
+  if (new Date(stored.expires_at).getTime() < Date.now()) {
+    await deleteRefreshToken(refreshToken);
+    clearAuthCookies(res);
+    return res
+      .status(401)
+      .json({ success: false, message: "Refresh token expired" });
+  }
+
+  const userResult = await pool.query("SELECT * FROM users WHERE id = $1", [
+    stored.user_id,
+  ]);
+  if (userResult.rows.length === 0) {
+    await deleteRefreshToken(refreshToken);
+    clearAuthCookies(res);
+    return res.status(401).json({ success: false, message: "User not found" });
+  }
+
+  const user = userResult.rows[0];
+
+  // Rotate: revoke the old refresh token and issue a fresh pair.
+  await deleteRefreshToken(refreshToken);
+  const accessToken = await issueTokens(res, user);
+
+  return res.json({ success: true, accessToken });
 };
 
 export const updateProfile = async (req, res) => {

@@ -8,6 +8,7 @@ process.on('uncaughtException', (err) => {
 import dotenv from "dotenv";
 import express from 'express';
 import path from 'path';
+import cookieParser from "cookie-parser";
 import authRoutes from './routes/authRoutes.js';
 import blogRoutes from './routes/blogRoutes.js';
 // import indexRoutes from './routes/indexRoutes.js';
@@ -38,14 +39,16 @@ const upload = multer({ storage: storage });
 // Middleware
 app.use(
   cors({
-    origin: "https://blogs-1-4a2q.onrender.com",
+    origin: process.env.CORS_ORIGIN || "https://blogs-1-4a2q.onrender.com",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   })
 );
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get("/api/health", (req, res) => {

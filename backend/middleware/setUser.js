@@ -1,8 +1,9 @@
 import jwt from 'jsonwebtoken';
 
 const setUser = (req, res, next) => {
+  const cookieToken = req.cookies && req.cookies.access_token;
   const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.split(" ")[1];
+  const token = cookieToken || (authHeader && authHeader.split(" ")[1]);
 
   if (token) {
     try {

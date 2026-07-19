@@ -1,4 +1,4 @@
-import { getAllUsers, getUserById, getUserBlogs, deleteUser, deleteBlog } from '../models/adminModel.js';
+import { getAllUsers, getUserById, getUserBlogs, getUserNameById, deleteUser, deleteBlog } from '../models/adminModel.js';
 import pool from '../models/db.js';
 
 export const adminPanel = async (req, res) => {  try {
@@ -11,13 +11,17 @@ export const adminPanel = async (req, res) => {  try {
     const users = await getAllUsers(page, limit, search, role);
 
     // Count total users with the same filters
-    const filterQuery = `
+    const filterParams = [`%${search}%`];
+    let filterQuery = `
       SELECT COUNT(*) FROM users
       WHERE name != 'admin'
       AND (name ILIKE $1 OR email ILIKE $1)
-      ${role ? `AND role = '${role}'` : ''}
     `;
-    const countResult = await pool.query(filterQuery, [`%${search}%`]);
+    if (role) {
+      filterQuery += ` AND role = $2`;
+      filterParams.push(role);
+    }
+    const countResult = await pool.query(filterQuery, filterParams);
     const totalUsers = parseInt(countResult.rows[0].count);
     const totalPages = Math.ceil(totalUsers / limit);
 
@@ -62,8 +66,7 @@ export const viewUserBlogs = async (req, res) => {
       'SELECT COUNT(*) FROM blogs WHERE author = $1 AND (title ILIKE $2 OR content ILIKE $2) AND ($3 = \'\' OR category = $3)',
       [id, `%${search}%`, category]
     );
-    const names = await pool.query(`SELECT users.name FROM users JOIN blogs ON blogs.author=users.id`);
-    const name= names.rows[0]?.name;
+    const userName = await getUserNameById(id);
     const totalBlogs = parseInt(result.rows[0].count);
     const totalPages = Math.ceil(totalBlogs / limit);
 res.json({
@@ -71,7 +74,7 @@ res.json({
       data: {
         user: {
           id,
-          name: nameResult.rows[0].name
+          name: userName
         },
         blogs,
         pagination: {
@@ -116,13 +119,3 @@ export const handleDeleteUser = async (req, res) => {
     res.status(500).send('Server Error');
   }
 };
-
-// Admin middleware to ensure that only admin can access the routes
-function requireAdmin(req, res, next) {
-  if (req.user && req.user.role === "admin") {
-    return next();
-  }
-  res.status(403).send('Access denied: Admins only.');
-}
-
-export default requireAdmin;

@@ -22,8 +22,12 @@ function Navbar({ toggleSidebar }) {
       });
   }, [location.pathname]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
+  const handleLogout = async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch (err) {
+      console.error("Logout failed", err);
+    }
     setIsLoggedIn(false);
     setRole(null);
     navigate("/");
