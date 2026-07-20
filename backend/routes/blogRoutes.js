@@ -1,25 +1,9 @@
 import express from 'express';
-import multer from 'multer';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import * as blogController from '../controllers/blogController.js';
 import requireAuth from '../middleware/authMiddleware.js';
+import { upload } from '../config/s3Upload.js';
 
 const router = express.Router();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'public/uploads/'); // Ensure this folder exists
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname)); // Unique filename
-  }
-});
-
-const upload = multer({ storage });
 
 
 router.get('/', requireAuth, blogController.getBlogList);

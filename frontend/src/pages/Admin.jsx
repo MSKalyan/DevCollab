@@ -1,131 +1,167 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import api from "../api/api";
+import PageHeader from "../components/ui/PageHeader";
+import Button from "../components/ui/Button";
+import { Badge } from "../components/ui/Card";
+import EmptyState from "../components/ui/EmptyState";
+import { FullPageLoader } from "../components/ui/Spinner";
+import { ConfirmDialog } from "../components/ui/Modal";
+import { useToast } from "../components/ui/Toast";
+import { Users, FileText, Trash2, Eye, ShieldCheck, LayoutDashboard } from "lucide-react";
 
-const Admin = () => {
+function Kpi({ icon: Icon, label, value, tint }) {
+  return (
+    <div className="card flex items-center gap-4 p-5">
+      <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${tint}`}>
+        <Icon className="h-6 w-6" />
+      </div>
+      <div>
+        <p className="text-2xl font-semibold text-ink">{value}</p>
+        <p className="text-sm text-ink-muted">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+function Table({ headers, children }) {
+  return (
+    <div className="card overflow-hidden p-0">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-line bg-surface-2 text-xs uppercase tracking-wider text-ink-muted">
+              {headers.map((h) => (
+                <th key={h} className="whitespace-nowrap px-5 py-3 font-semibold">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">{children}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export default function Admin() {
   const [users, setUsers] = useState([]);
   const [blogs, setBlogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Cookies are sent automatically
         const userRes = await api.get("/admin/adminpanel");
         setUsers(userRes.data.users || []);
-
         const blogRes = await api.get("/admin/blogs");
         setBlogs(blogRes.data.blogs || []);
-      } catch (err) {
-        console.error("Error fetching admin data:", err);
+      } catch {
+        toast.error("Failed to load admin data.");
       } finally {
         setLoading(false);
       }
     };
-
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleDeleteUser = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this user?")) return;
-
+  const confirmDelete = async () => {
+    if (!pending) return;
+    setBusy(true);
     try {
-      await api.delete(`/admin/users/${id}`);
-      setUsers((prev) => prev.filter((u) => u.id !== id));
-      alert("User deleted successfully!");
-    } catch (err) {
-      console.error("Failed to delete user:", err);
-      alert("Could not delete user.");
+      if (pending.type === "user") {
+        await api.delete(`/admin/users/${pending.item.id}`);
+        setUsers((prev) => prev.filter((u) => u.id !== pending.item.id));
+        toast.success("User deleted.");
+      } else {
+        await api.delete(`/admin/blogs/${pending.item.id}`);
+        setBlogs((prev) => prev.filter((b) => b.id !== pending.item.id));
+        toast.success("Blog deleted.");
+      }
+    } catch {
+      toast.error("Could not delete. Please try again.");
+    } finally {
+      setBusy(false);
+      setPending(null);
     }
   };
 
-  const handleDeleteBlog = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this blog?")) return;
-
-    try {
-      await api.delete(`/admin/blogs/${id}`);
-      setBlogs((prev) => prev.filter((b) => b.id !== id));
-      alert("Blog deleted successfully!");
-    } catch (err) {
-      console.error("Failed to delete blog:", err);
-      alert("Could not delete blog.");
-    }
-  };
-
-  if (loading) {
-    return <p className="text-center mt-10">Loading admin data...</p>;
-  }
+  if (loading) return <FullPageLoader label="Loading admin dashboard…" />;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 text-center">
-        Admin Dashboard
-      </h1>
+    <div className="mx-auto max-w-6xl">
+      <PageHeader
+        title="Admin Dashboard"
+        subtitle="Oversee users and published content."
+        actions={<span className="badge badge-brand"><ShieldCheck className="h-3.5 w-3.5" /> Admin</span>}
+      />
 
-      <section className="mb-10">
-        <h2 className="text-2xl font-semibold mb-4 border-b pb-2">
-          Manage Users
-        </h2>
+      <div className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Kpi icon={Users} label="Total Users" value={users.length} tint="bg-brand/10 text-brand-soft" />
+        <Kpi icon={FileText} label="Total Blogs" value={blogs.length} tint="bg-accent/10 text-accent" />
+        <Kpi icon={LayoutDashboard} label="Admins" value={users.filter((u) => u.role === "admin").length} tint="bg-brand/10 text-brand-soft" />
+      </div>
 
+      <section className="mb-12">
+        <h2 className="mb-4 text-lg font-semibold text-ink">Manage Users</h2>
         {users.length === 0 ? (
-          <p>No users found.</p>
+          <EmptyState icon={Users} title="No users found" />
         ) : (
-          <ul className="divide-y divide-gray-200">
+          <Table headers={["User", "Email", "Role", "Actions"]}>
             {users.map((u) => (
-              <li key={u.id} className="flex justify-between items-center py-3">
-                <span>
-                  <b>{u.name}</b> — {u.email} ({u.role})
-                </span>
-                <button
-                  onClick={() => handleDeleteUser(u.id)}
-                  className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
-                >
-                  Delete
-                </button>
-              </li>
+              <tr key={u.id} className="transition hover:bg-surface-2">
+                <td className="px-5 py-3.5 font-medium text-ink">{u.name}</td>
+                <td className="px-5 py-3.5 text-ink-muted">{u.email}</td>
+                <td className="px-5 py-3.5"><Badge variant={u.role === "admin" ? "brand" : "neutral"}>{u.role}</Badge></td>
+                <td className="px-5 py-3.5 text-right">
+                  <Button variant="dangerOutline" size="sm" onClick={() => setPending({ type: "user", item: u })}>
+                    <Trash2 className="h-4 w-4" /> Delete
+                  </Button>
+                </td>
+              </tr>
             ))}
-          </ul>
+          </Table>
         )}
       </section>
 
       <section>
-        <h2 className="text-2xl font-semibold mb-4 border-b pb-2">
-          Manage Blogs
-        </h2>
-
+        <h2 className="mb-4 text-lg font-semibold text-ink">Manage Blogs</h2>
         {blogs.length === 0 ? (
-          <p>No blogs found.</p>
+          <EmptyState icon={FileText} title="No blogs found" />
         ) : (
-          <ul className="divide-y divide-gray-200">
+          <Table headers={["Title", "Author", "Actions"]}>
             {blogs.map((b) => (
-              <li key={b.id} className="flex justify-between items-center py-3">
-                <div>
-                  <b>{b.title}</b>{" "}
-                  <span className="text-gray-600">
-                    — by {b.author_name}
-                  </span>
-                </div>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => (window.location.href = `/blogs/${b.id}`)}
-                    className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
-                  >
-                    View
-                  </button>
-                  <button
-                    onClick={() => handleDeleteBlog(b.id)}
-                    className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </li>
+              <tr key={b.id} className="transition hover:bg-surface-2">
+                <td className="px-5 py-3.5 font-medium text-ink">{b.title}</td>
+                <td className="px-5 py-3.5 text-ink-muted">{b.author_name}</td>
+                <td className="px-5 py-3.5">
+                  <div className="flex justify-end gap-2">
+                    <Link to={`/blogs/${b.id}`}>
+                      <Button variant="secondary" size="sm"><Eye className="h-4 w-4" /> View</Button>
+                    </Link>
+                    <Button variant="dangerOutline" size="sm" onClick={() => setPending({ type: "blog", item: b })}>
+                      <Trash2 className="h-4 w-4" /> Delete
+                    </Button>
+                  </div>
+                </td>
+              </tr>
             ))}
-          </ul>
+          </Table>
         )}
       </section>
+
+      <ConfirmDialog
+        open={!!pending}
+        onClose={() => setPending(null)}
+        onConfirm={confirmDelete}
+        loading={busy}
+        title={`Delete ${pending?.type === "user" ? "user" : "blog"}?`}
+        message={pending ? `“${pending.item.name || pending.item.title}” will be permanently removed.` : ""}
+        confirmLabel="Delete"
+      />
     </div>
   );
-};
-
-export default Admin;
+}

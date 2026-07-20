@@ -1,85 +1,85 @@
-// frontend/src/pages/Login.jsx
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import api from "../api/api";   // ✅ use centralized api
-import {GoogleLogin} from '@react-oauth/google';
-function Login() {
+import { GoogleLogin } from "@react-oauth/google";
+import api from "../api/api";
+import AuthLayout from "../components/ui/AuthLayout";
+import Button from "../components/ui/Button";
+import { Input } from "../components/ui/Input";
+import { useToast } from "../components/ui/Toast";
+import { Mail, Lock } from "lucide-react";
+
+export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const googleClientId = null; // Google auth temporarily disabled
+  const toast = useToast();
+  const googleClientId = null;
 
-
- const handleSubmit = async (e) => {
-  e.preventDefault();
-
-  try {
-    const res = await api.post("/auth/login", { email, password });
-    navigate("/blogs");
-  } catch (err) {
-    setError(err.response?.data?.message || "Login failed");
-  }
-};
-
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      await api.post("/auth/login", { email, password });
+      toast.success("Welcome back!");
+      navigate("/blogs");
+    } catch (err) {
+      const msg = err.response?.data?.message || "Login failed";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div style={{ maxWidth: "400px", margin: "2rem auto" }}>
-      <h2>Login</h2>
+    <AuthLayout
+      title="Sign in to Inkwell"
+      subtitle="Welcome back — let's get you writing."
+      footer={
+        <>
+          Don't have an account?{" "}
+          <Link to="/register" className="font-medium text-brand-soft hover:underline">
+            Create one
+          </Link>
+        </>
+      }
+    >
       {googleClientId && (
-        <GoogleLogin
-          onSuccess={async (credentialResponse) => {
-            try {
-              const res = await api.post("/auth/google", {
-                credential: credentialResponse.credential,
-              });
-              navigate("/blogs");
-            } catch (err) {
-              console.log(err);
-              setError("Google login failed");
-            }
-          }}
-          onError={() => {
-            setError("Google login failed");
-          }}
-        />
+        <div className="mb-6">
+          <GoogleLogin
+            onSuccess={async (credentialResponse) => {
+              try {
+                await api.post("/auth/google", { credential: credentialResponse.credential });
+                toast.success("Signed in with Google");
+                navigate("/blogs");
+              } catch {
+                toast.error("Google login failed");
+              }
+            }}
+            onError={() => toast.error("Google login failed")}
+          />
+          <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-wide text-ink-muted">
+            <span className="h-px flex-1 bg-line" />
+            or
+            <span className="h-px flex-1 bg-line" />
+          </div>
+        </div>
       )}
-      {error && <p style={{ color: "red" }}>{error}</p>}
 
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: "1rem" }}>
-          <label>Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{ display: "block", width: "100%", padding: "0.5rem" }}
-          />
+      {error && (
+        <div className="mb-5 rounded-xl border border-danger/40 bg-[#1c1010] px-4 py-3 text-sm font-medium text-danger">
+          {error}
         </div>
+      )}
 
-        <div style={{ marginBottom: "1rem" }}>
-          <label>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ display: "block", width: "100%", padding: "0.5rem" }}
-          />
-        </div>
-
-        <button type="submit" style={{ padding: "0.5rem 1rem" }}>
-          Login
-        </button>
-
-        <br />
-        <Link to="/register">
-          <u>If not registered, click here</u>
-        </Link>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input label="Email" type="email" name="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required autoComplete="email" icon={Mail} />
+        <Input label="Password" type="password" name="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required autoComplete="current-password" icon={Lock} />
+        <Button type="submit" loading={loading} className="w-full" size="lg">Sign in</Button>
       </form>
-    </div>
+    </AuthLayout>
   );
 }
-
-export default Login;

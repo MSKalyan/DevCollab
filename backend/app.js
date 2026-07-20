@@ -14,7 +14,6 @@ import blogRoutes from './routes/blogRoutes.js';
 // import indexRoutes from './routes/indexRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import commentRoutes from './routes/commentRoutes.js';
-import multer from 'multer'
 import { fileURLToPath } from 'url';
 import cors from "cors"
 // Get the current directory (equivalent to __dirname)
@@ -25,17 +24,6 @@ const app = express();
 // Initialize dotenv to use environment variables
 dotenv.config();
 
-// Configure storage options for multer
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'public/uploads');  // Upload folder (ensure it exists)
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));  // Unique file name
-  }
-});
-
-const upload = multer({ storage: storage });
 // Middleware
 app.use(
   cors({

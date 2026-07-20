@@ -1,99 +1,68 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import api from "../api/api";   // ✅ use central API
+import api from "../api/api";
+import AuthLayout from "../components/ui/AuthLayout";
+import Button from "../components/ui/Button";
+import { Input } from "../components/ui/Input";
+import { useToast } from "../components/ui/Toast";
+import { User, Mail, Lock } from "lucide-react";
 
-function Register() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+export default function Register() {
+  const [form, setForm] = useState({ name: "", email: "", password: "", confirmPassword: "" });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const toast = useToast();
+
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (password !== confirmPassword) {
+    setError("");
+    if (form.password !== form.confirmPassword) {
       setError("Passwords do not match");
       return;
     }
-
+    setLoading(true);
     try {
-      await api.post("/auth/register", {
-        name,
-        email,
-        password,
-      });
-
-      // ✅ registration success → login flow
+      await api.post("/auth/register", { name: form.name, email: form.email, password: form.password });
+      toast.success("Account created — please sign in.");
       navigate("/login");
     } catch (err) {
-      setError(err.response?.data?.message || "Registration failed");
+      const msg = err.response?.data?.message || "Registration failed";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: "400px", margin: "2rem auto" }}>
-      <h2>Register</h2>
-
-      {error && <p style={{ color: "red" }}>{error}</p>}
-
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: "1rem" }}>
-          <label>Name</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            style={{ display: "block", width: "100%", padding: "0.5rem" }}
-          />
+    <AuthLayout
+      title="Create your account"
+      subtitle="Join Inkwell and start publishing in minutes."
+      footer={
+        <>
+          Already have an account?{" "}
+          <Link to="/login" className="font-medium text-brand-soft hover:underline">
+            Sign in
+          </Link>
+        </>
+      }
+    >
+      {error && (
+        <div className="mb-5 rounded-xl border border-danger/40 bg-[#1c1010] px-4 py-3 text-sm font-medium text-danger">
+          {error}
         </div>
+      )}
 
-        <div style={{ marginBottom: "1rem" }}>
-          <label>Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{ display: "block", width: "100%", padding: "0.5rem" }}
-          />
-        </div>
-
-        <div style={{ marginBottom: "1rem" }}>
-          <label>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ display: "block", width: "100%", padding: "0.5rem" }}
-          />
-        </div>
-
-        <div style={{ marginBottom: "1rem" }}>
-          <label>Confirm Password</label>
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-            style={{ display: "block", width: "100%", padding: "0.5rem" }}
-          />
-        </div>
-
-        <button type="submit" style={{ padding: "0.5rem 1rem" }}>
-          Register
-        </button>
-
-        <br />
-        <Link to="/login">
-          <u>Already have an account? Login here</u>
-        </Link>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input label="Name" name="name" value={form.name} onChange={set("name")} placeholder="Ada Lovelace" required icon={User} />
+        <Input label="Email" type="email" name="email" value={form.email} onChange={set("email")} placeholder="you@example.com" required icon={Mail} />
+        <Input label="Password" type="password" name="password" value={form.password} onChange={set("password")} placeholder="••••••••" required icon={Lock} />
+        <Input label="Confirm Password" type="password" name="confirmPassword" value={form.confirmPassword} onChange={set("confirmPassword")} placeholder="••••••••" required icon={Lock} />
+        <Button type="submit" loading={loading} className="w-full" size="lg">Create account</Button>
       </form>
-    </div>
+    </AuthLayout>
   );
 }
-
-export default Register;

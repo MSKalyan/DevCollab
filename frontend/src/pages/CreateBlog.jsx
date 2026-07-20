@@ -1,8 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/api";
+import PageHeader from "../components/ui/PageHeader";
+import Button from "../components/ui/Button";
+import { Input, Textarea } from "../components/ui/Input";
+import { useToast } from "../components/ui/Toast";
+import { Save, ArrowLeft } from "lucide-react";
 
-function CreateBlog() {
+export default function CreateBlog() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [category, setCategory] = useState("");
@@ -11,18 +16,13 @@ function CreateBlog() {
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
+  const toast = useToast();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!title || !content || !category) {
-      setError("Please fill in all required fields.");
-      return;
-    }
-
-    setLoading(true);
     setError("");
-
+    if (!title || !content || !category) { setError("Please fill in all required fields."); return; }
+    setLoading(true);
     try {
       const formData = new FormData();
       formData.append("title", title);
@@ -30,100 +30,50 @@ function CreateBlog() {
       formData.append("category", category);
       if (image) formData.append("image", image);
 
-      await api.post("/blogs/create", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
+      await api.post("/blogs/create", formData, { headers: { "Content-Type": "multipart/form-data" } });
+      toast.success("Blog published successfully.");
       navigate("/myblogs");
     } catch (err) {
-      console.error("Create blog failed:", err);
-      setError(
-        err.response?.data?.message ||
-          "Error creating blog. Please try again."
-      );
+      const msg = err.response?.data?.message || "Error creating blog. Please try again.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-2xl bg-white rounded-xl shadow-lg p-8">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-6 text-center">
-          Create New Blog
-        </h2>
+    <div className="mx-auto max-w-2xl">
+      <Button variant="ghost" size="sm" className="mb-4 -ml-2" onClick={() => navigate(-1)}>
+        <ArrowLeft className="h-4 w-4" /> Back
+      </Button>
 
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-100 text-red-700 px-4 py-2 text-sm text-center">
-            {error}
-          </div>
-        )}
+      <PageHeader title="Create new blog" subtitle="Share a story with the community." />
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Title */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Title
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+      {error && (
+        <div className="mb-5 rounded-xl border border-danger/40 bg-[#1c1010] px-4 py-3 text-sm font-medium text-danger">{error}</div>
+      )}
 
-          {/* Category */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category
-            </label>
-            <input
-              type="text"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+      <form onSubmit={handleSubmit} className="card space-y-5 p-6">
+        <Input label="Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="An insightful title" required />
+        <Input label="Category" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. Engineering, Design, Life" required />
+        <Textarea label="Content" rows={10} value={content} onChange={(e) => setContent(e.target.value)} placeholder="Write your story…" required />
 
-          {/* Content */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Content
-            </label>
-            <textarea
-              rows="7"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+        <div>
+          <label className="field-label">Cover Image</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setImage(e.target.files[0])}
+            className="block w-full text-sm text-ink-muted file:mr-3 file:rounded-xl file:border-0 file:bg-brand/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-brand-soft hover:file:bg-brand/20"
+          />
+        </div>
 
-          {/* Image */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Cover Image
-            </label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => setImage(e.target.files[0])}
-              className="text-sm text-gray-600"
-            />
-          </div>
-
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-blue-600 py-2.5 text-white font-medium hover:bg-blue-700 transition disabled:opacity-60"
-          >
-            {loading ? "Publishing..." : "Publish Blog"}
-          </button>
-        </form>
-      </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="secondary" type="button" onClick={() => navigate("/myblogs")}>Cancel</Button>
+          <Button type="submit" loading={loading}><Save className="h-4 w-4" /> Publish Blog</Button>
+        </div>
+      </form>
     </div>
   );
 }
-
-export default CreateBlog;

@@ -1,103 +1,23 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import api from "../api/api";
+import { FullPageLoader } from "./ui/Spinner";
 
-function Navbar({ toggleSidebar }) {
-  const navigate = useNavigate();
-
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [role, setRole] = useState(null);
+export default function AdminRoute({ children }) {
+  const [status, setStatus] = useState("loading"); // loading | ok | denied
 
   useEffect(() => {
     api
       .get("/auth/me")
       .then((res) => {
-        setIsLoggedIn(true);
-        setRole(res.data.role);
+        if (res.data?.role === "admin") setStatus("ok");
+        else setStatus("denied");
       })
-      .catch(() => {
-        setIsLoggedIn(false);
-        setRole(null);
-      });
+      .catch(() => setStatus("denied"));
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      await api.post("/auth/logout");
-    } catch (err) {
-      console.error("Logout failed", err);
-    }
-    setIsLoggedIn(false);
-    setRole(null);
-    navigate("/");
-  };
+  if (status === "loading") return <FullPageLoader label="Checking access…" />;
+  if (status === "denied") return <Navigate to="/" replace />;
 
-  return (
-    <nav className="sticky top-0 z-50 bg-white shadow-sm">
-      <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
-        {/* Left section */}
-        <div className="flex items-center gap-4">
-          {isLoggedIn && (
-            <button
-              onClick={toggleSidebar}
-              className="text-xl font-semibold focus:outline-none"
-            >
-              ☰
-            </button>
-          )}
-
-          <Link to="/" className="text-xl font-bold text-gray-800">
-            MyBlog
-          </Link>
-        </div>
-
-        {/* Right section */}
-        <div className="flex items-center gap-4">
-          {isLoggedIn ? (
-            <>
-              {/* Search */}
-              <input
-                type="text"
-                placeholder="Search blogs..."
-                className="hidden md:block px-4 py-2 rounded-full border text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
-
-              {role === "admin" && (
-                <Link
-                  to="/admin"
-                  className="px-3 py-1.5 rounded-md bg-green-600 text-white text-sm hover:bg-green-700"
-                >
-                  Admin Panel
-                </Link>
-              )}
-
-              <button
-                onClick={handleLogout}
-                className="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-700"
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <Link
-                to="/login"
-                className="text-sm font-medium text-gray-700 hover:text-blue-600"
-              >
-                Login
-              </Link>
-              <Link
-                to="/register"
-                className="text-sm font-medium text-gray-700 hover:text-blue-600"
-              >
-                Register
-              </Link>
-            </>
-          )}
-        </div>
-      </div>
-    </nav>
-  );
+  return children;
 }
-
-export default Navbar;

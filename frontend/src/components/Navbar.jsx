@@ -1,141 +1,91 @@
-import React, { useEffect, useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import api from "../api/api";
+import React from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Menu, Search, LogOut, ShieldCheck, Bell } from "lucide-react";
+import Logo from "./ui/Logo";
+import Button from "./ui/Button";
+import useAuth from "../hooks/useAuth";
 
 function Navbar({ toggleSidebar }) {
   const navigate = useNavigate();
-  const location = useLocation(); 
-
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [role, setRole] = useState(null);
-
-  useEffect(() => {
-    api
-      .get("/auth/me")
-      .then((res) => {
-        setIsLoggedIn(true);
-        setRole(res.data.role);
-      })
-      .catch(() => {
-        setIsLoggedIn(false);
-        setRole(null);
-      });
-  }, [location.pathname]);
+  const { user, isLoggedIn, role, logout } = useAuth();
 
   const handleLogout = async () => {
-    try {
-      await api.post("/auth/logout");
-    } catch (err) {
-      console.error("Logout failed", err);
-    }
-    setIsLoggedIn(false);
-    setRole(null);
+    await logout();
     navigate("/");
   };
-const styles = {
-  navbar: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "10px 20px",
-    backgroundColor: "#ffffff",
-    position: "sticky",
-    top: 0,
-    zIndex: 100,
-    boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
-  },
-  logo: {
-    margin: 0,
-  },
-  links: {
-    display: "flex",
-    alignItems: "center",
-    gap: "15px",
-  },
-  search: {
-    flex: 1,
-    maxWidth: "500px",
-    margin: "0 40px",
-    padding: "8px 20px",
-    borderRadius: "25px",
-    border: "none",
-    outline: "none",
-    fontSize: "16px",
-    color: "#000",
-    boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-  },
-  rightSection: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-  },
-  logoutBtn: {
-    background: "red",
-    color: "#fff",
-    border: "none",
-    padding: "5px 10px",
-    cursor: "pointer",
-    borderRadius: "5px",
-  },
-  adminBtn: {
-    background: "green",
-    color: "#fff",
-    textDecoration: "none",
-    padding: "5px 10px",
-    borderRadius: "5px",
-  },
-  link: {
-    textDecoration: "none",
-    color: "black",
-  },
-};
 
   return (
-    <nav style={styles.navbar}>
-      {/* Sidebar toggle */}
-      {isLoggedIn && <button onClick={toggleSidebar}>☰</button>}
+    <header className="sticky top-0 z-50 border-b border-line glass">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="flex items-center gap-3">
+          {isLoggedIn && (
+            <button
+              onClick={toggleSidebar}
+              aria-label="Toggle sidebar"
+              className="rounded-xl p-2 text-ink-muted transition hover:bg-surface-2 hover:text-ink"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          )}
+          <Logo />
+        </div>
 
-      {/* Logo */}
-      <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>
-        <h2 style={styles.logo}>MyBlog</h2>
-      </Link>
-
-      <div style={styles.links}>
-        {isLoggedIn ? (
-          <>
-            {/* Search bar */}
+        {isLoggedIn && (
+          <div className="relative hidden flex-1 max-w-md md:block">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
             <input
-              type="text"
-              placeholder="Search blogs..."
-              style={styles.search}
+              type="search"
+              placeholder="Search blogs…"
+              aria-label="Search blogs"
+              className="field pl-9"
             />
+          </div>
+        )}
 
-            <div style={styles.rightSection}>
-              {/* Admin Panel */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {isLoggedIn ? (
+            <>
+              <button
+                aria-label="Notifications"
+                className="relative hidden rounded-xl p-2 text-ink-muted transition hover:bg-surface-2 hover:text-ink sm:inline-flex"
+              >
+                <Bell className="h-5 w-5" />
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-brand shadow-[0_0_8px_rgba(109,94,252,0.9)]" />
+              </button>
+
               {role === "admin" && (
-                <Link to="/admin" style={styles.adminBtn}>
-                  Admin Panel
+                <Link to="/admin">
+                  <Button variant="outline" size="md">
+                    <ShieldCheck className="h-4 w-4" />
+                    Admin
+                  </Button>
                 </Link>
               )}
 
-              {/* Logout */}
-              <button onClick={handleLogout} style={styles.logoutBtn}>
-                Logout
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <Link to="/login" style={styles.link}>
-              Login
-            </Link>
-            <Link to="/register" style={styles.link}>
-              Register
-            </Link>
-          </>
-        )}
+              <div className="hidden items-center gap-2.5 rounded-xl border border-line bg-surface py-1 pl-1 pr-3 sm:flex">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-brand-deep text-sm font-semibold text-white">
+                  {user?.name?.charAt(0)?.toUpperCase() || "U"}
+                </span>
+                <span className="text-sm font-medium text-ink">{user?.name}</span>
+              </div>
+
+              <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Logout">
+                <LogOut className="h-5 w-5" />
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link to="/login">
+                <Button variant="ghost">Login</Button>
+              </Link>
+              <Link to="/register">
+                <Button>Get started</Button>
+              </Link>
+            </>
+          )}
+        </div>
       </div>
-    </nav>
+    </header>
   );
 }
 

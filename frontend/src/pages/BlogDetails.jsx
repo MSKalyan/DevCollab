@@ -1,252 +1,95 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../api/api";
+import CommentSection from "../components/CommentSection";
+import Button from "../components/ui/Button";
+import { Skeleton } from "../components/ui/Spinner";
+import EmptyState from "../components/ui/EmptyState";
+import { useToast } from "../components/ui/Toast";
+import { ArrowLeft, ImageOff, Calendar } from "lucide-react";
 
-// Build unlimited nested comment tree
-function buildCommentTree(flatComments) {
-  const map = {};
-  flatComments.forEach((c) => {
-    map[c.id] = { ...c, replies: [] };
-  });
-
-  const roots = [];
-
-  flatComments.forEach((c) => {
-    if (c.parent_comment_id) {
-      map[c.parent_comment_id]?.replies.push(map[c.id]);
-    } else {
-      roots.push(map[c.id]);
-    }
-  });
-
-  return roots;
-}
-
-// Recursive comment item
-function CommentItem({ comment, depth = 0, replyText, setReplyText, onReply, onReact }) {
-  const indent = Math.min(depth, 6) * 18;
-
-  return (
-    <div style={{ marginLeft: indent }} className="mt-4">
-      <div className="bg-gray-50 rounded-lg p-3 border">
-        <div className="flex justify-between">
-          <p className="font-semibold text-sm">{comment.author_name}</p>
-          <p className="text-xs text-gray-500">
-            {comment.created_at ? new Date(comment.created_at).toLocaleString() : ""}
-          </p>
-        </div>
-
-        <p className="text-gray-800 mt-1 whitespace-pre-line">
-          {comment.content}
-        </p>
-
-        {/* Like / Dislike */}
-        <div className="flex items-center gap-3 mt-2 text-sm">
-          <button
-            onClick={() => onReact(comment.id, "like")}
-            className={`px-2 py-1 rounded border ${
-              comment.my_reaction === "like" ? "bg-green-100" : "bg-white"
-            }`}
-          >
-            👍 {comment.likes || 0}
-          </button>
-
-          <button
-            onClick={() => onReact(comment.id, "dislike")}
-            className={`px-2 py-1 rounded border ${
-              comment.my_reaction === "dislike" ? "bg-red-100" : "bg-white"
-            }`}
-          >
-            👎 {comment.dislikes || 0}
-          </button>
-        </div>
-
-        {/* Reply input */}
-        <div className="flex gap-2 mt-3">
-          <input
-            value={replyText[comment.id] || ""}
-            onChange={(e) =>
-              setReplyText({
-                ...replyText,
-                [comment.id]: e.target.value,
-              })
-            }
-            placeholder="Reply..."
-            className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-          <button
-            onClick={() => onReply(comment.id)}
-            className="px-3 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900"
-          >
-            Reply
-          </button>
-        </div>
-      </div>
-
-      {/* Render replies recursively */}
-      {comment.replies?.length > 0 && (
-        <div className="mt-2">
-          {comment.replies.map((r) => (
-            <CommentItem
-              key={r.id}
-              comment={r}
-              depth={depth + 1}
-              replyText={replyText}
-              setReplyText={setReplyText}
-              onReply={onReply}
-              onReact={onReact}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function BlogDetails() {
+export default function BlogDetails() {
   const { id } = useParams();
-
+  const toast = useToast();
   const [blog, setBlog] = useState(null);
-
-  // comments
-  const [comments, setComments] = useState([]); // flat list
-  const [newComment, setNewComment] = useState("");
-  const [replyText, setReplyText] = useState({});
-
-  const commentTree = useMemo(() => buildCommentTree(comments), [comments]);
-
-  const fetchComments = async () => {
-    const commentsRes = await api.get(`/comments/blog/${id}`);
-    setComments(commentsRes.data.comments || []);
-  };
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    const fetchBlogData = async () => {
+    const fetchBlog = async () => {
+      setLoading(true);
       try {
-        const blogRes = await api.get(`/blogs/${id}`);
-        setBlog(blogRes.data.data.blog);
-
-        await fetchComments();
-      } catch (err) {
-        console.error("Failed to load blog details:", err);
+        const res = await api.get(`/blogs/${id}`);
+        setBlog(res.data.data.blog);
+      } catch {
+        setNotFound(true);
+        toast.error("Could not load this blog.");
+      } finally {
+        setLoading(false);
       }
     };
-
-    fetchBlogData();
+    fetchBlog();
     // eslint-disable-next-line
   }, [id]);
 
-  const handleAddComment = async () => {
-    if (!newComment.trim()) return;
-
-    try {
-      await api.post(`/comments/blog/${id}`, {
-        content: newComment.trim(),
-      });
-
-      setNewComment("");
-      await fetchComments();
-    } catch (err) {
-      console.error("Failed to add comment:", err);
-    }
-  };
-
-  // ✅ New reply endpoint
-  const handleReply = async (commentId) => {
-    if (!replyText[commentId]?.trim()) return;
-
-    try {
-      await api.post(`/comments/${commentId}/reply`, {
-        content: replyText[commentId].trim(),
-      });
-
-      setReplyText((prev) => ({ ...prev, [commentId]: "" }));
-      await fetchComments();
-    } catch (err) {
-      console.error("Failed to reply:", err);
-    }
-  };
-
-  // ✅ Like/Dislike endpoint
-  const handleReact = async (commentId, type) => {
-    try {
-      await api.post(`/comments/${commentId}/react`, { type });
-      await fetchComments();
-    } catch (err) {
-      console.error("Failed to react:", err);
-    }
-  };
-
-  if (!blog) {
-    return <p className="text-center mt-20 text-gray-500">Loading blog...</p>;
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <Skeleton className="mb-4 h-4 w-32" />
+        <Skeleton className="mb-6 h-10 w-3/4" />
+        <Skeleton className="mb-3 h-4 w-full" />
+        <Skeleton className="mb-3 h-4 w-full" />
+        <Skeleton className="mb-8 h-4 w-2/3" />
+        <Skeleton className="h-72 w-full rounded-2xl" />
+      </div>
+    );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-10 px-4">
-      <div className="max-w-3xl mx-auto bg-white rounded-xl shadow p-8">
-        <p className="text-sm text-gray-500 mb-2">
-          By <span className="font-medium">{blog.author}</span>
-        </p>
-
-        <h1 className="text-3xl font-semibold mb-4">{blog.title}</h1>
-
-        <p className="text-gray-700 whitespace-pre-line mb-6">{blog.content}</p>
-
-        {blog.image && (
-          <img
-            src={`${process.env.REACT_APP_API_BASE_URL}/uploads/${blog.image}`}
-            alt={blog.title}
-            className="w-full max-h-[420px] object-cover rounded-lg mb-8"
-          />
-        )}
-
-        {/* COMMENTS */}
-        <div className="mt-10">
-          <h3 className="text-xl font-semibold mb-4">Comments</h3>
-
-          {/* Add comment */}
-          <div className="flex gap-2 mb-6">
-            <input
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Add a comment..."
-              className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
-            <button
-              onClick={handleAddComment}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Comment
-            </button>
-          </div>
-
-          {/* Comment thread */}
-          {commentTree.length === 0 ? (
-            <p className="text-gray-500">No comments yet</p>
-          ) : (
-            commentTree.map((comment) => (
-              <CommentItem
-                key={comment.id}
-                comment={comment}
-                depth={0}
-                replyText={replyText}
-                setReplyText={setReplyText}
-                onReply={handleReply}
-                onReact={handleReact}
-              />
-            ))
-          )}
-        </div>
-
-        <Link
-          to="/blogs"
-          className="inline-block mt-10 text-blue-600 font-medium hover:underline"
-        >
-          ← Back to blogs
-        </Link>
+  if (notFound || !blog) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <EmptyState
+          icon={ImageOff}
+          title="Blog not found"
+          description="This post may have been removed or is no longer available."
+          action={<Link to="/blogs"><Button variant="secondary">Back to blogs</Button></Link>}
+        />
       </div>
-    </div>
+    );
+  }
+
+  const imageUrl = blog.image
+    ? (blog.image.startsWith('http')
+        ? blog.image
+        : `${process.env.REACT_APP_API_BASE_URL}/uploads/${blog.image}`)
+    : null;
+
+  return (
+    <article className="mx-auto max-w-3xl animate-fade-in">
+      <Link to="/blogs" className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-ink-muted transition hover:text-brand-soft">
+        <ArrowLeft className="h-4 w-4" /> Back to blogs
+      </Link>
+
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-ink-muted">
+        <span className="font-medium text-ink-soft">{blog.author}</span>
+        {blog.category && <span className="badge badge-neutral">{blog.category}</span>}
+        {blog.created_at && (
+          <span className="inline-flex items-center gap-1.5">
+            <Calendar className="h-3.5 w-3.5" />
+            {new Date(blog.created_at).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
+          </span>
+        )}
+      </div>
+
+      <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">{blog.title}</h1>
+
+      {imageUrl && (
+        <img src={imageUrl} alt={blog.title} className="mt-6 max-h-[420px] w-full rounded-2xl border border-line object-cover" />
+      )}
+
+      <div className="mt-6 whitespace-pre-line text-[15px] leading-relaxed text-ink-soft">{blog.content}</div>
+
+      <CommentSection blogId={id} />
+    </article>
   );
 }
-
-export default BlogDetails;

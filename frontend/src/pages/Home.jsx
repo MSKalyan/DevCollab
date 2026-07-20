@@ -1,60 +1,68 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
-import api from "../api/api";
+import { ArrowRight, Sparkles, BookOpen, Users, PenLine } from "lucide-react";
+import Button from "../components/ui/Button";
+import useAuth from "../hooks/useAuth";
 
-function Home() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+const features = [
+  { icon: Sparkles, title: "Write with focus", desc: "A clean editor that gets out of your way so the words flow." },
+  { icon: BookOpen, title: "Publish beautifully", desc: "Your posts render in a refined, reading-first layout." },
+  { icon: Users, title: "Build a community", desc: "Threaded comments and reactions keep the conversation going." },
+];
 
-  useEffect(() => {
-    api
-      .get("/auth/me")
-      .then(() => setIsLoggedIn(true))
-      .catch(() => setIsLoggedIn(false));
-  }, []);
+export default function Home() {
+  const { isLoggedIn } = useAuth();
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-6 text-center">
-      <h1 className="text-4xl font-bold text-gray-900 mb-4">
-        Welcome to MyBlog
-      </h1>
+    <div className="mx-auto max-w-5xl">
+      <section className="animate-fade-in py-12 text-center sm:py-20">
+        <span className="badge badge-brand mx-auto mb-5">
+          <Sparkles className="h-3.5 w-3.5" />
+          A modern home for your writing
+        </span>
+        <h1 className="mx-auto max-w-3xl text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
+          Stories worth sharing, made <span className="text-gradient">simple</span>.
+        </h1>
+        <p className="mx-auto mt-5 max-w-xl text-lg text-ink-muted">
+          Inkwell is a calm, focused space to publish blogs, grow an audience,
+          and connect through thoughtful discussion.
+        </p>
 
-      <p className="text-lg text-gray-600 max-w-xl mb-10">
-        Share your thoughts, stories, and knowledge with the world.
-      </p>
+        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          {isLoggedIn ? (
+            <Link to="/blogs">
+              <Button size="lg">
+                Explore blogs
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          ) : (
+            <>
+              <Link to="/register">
+                <Button size="lg">
+                  Get started
+                  <PenLine className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link to="/login">
+                <Button variant="secondary" size="lg">Sign in</Button>
+              </Link>
+            </>
+          )}
+        </div>
+      </section>
 
-      <section className="border-t pt-8 w-full max-w-xl">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-          Discover Amazing Blogs
-        </h2>
-
-        {isLoggedIn ? (
-          <Link
-            to="/blogs"
-            className="inline-block text-blue-600 font-medium hover:underline"
-          >
-            Explore the latest blogs from our community →
-          </Link>
-        ) : (
-          <p className="font-medium text-gray-700">
-            <Link
-              to="/login"
-              className="text-blue-600 hover:underline"
-            >
-              Login
-            </Link>{" "}
-            or{" "}
-            <Link
-              to="/register"
-              className="text-blue-600 hover:underline"
-            >
-              Register
-            </Link>{" "}
-            to start writing your own blogs and connect with others!
-          </p>
-        )}
+      <section className="grid gap-5 pb-8 sm:grid-cols-3">
+        {features.map(({ icon: Icon, title, desc }) => (
+          <div key={title} className="card card-hover p-6">
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-brand/10 text-brand-soft">
+              <Icon className="h-5 w-5" />
+            </div>
+            <h3 className="text-base font-semibold text-ink">{title}</h3>
+            <p className="mt-1.5 text-sm text-ink-muted">{desc}</p>
+          </div>
+        ))}
       </section>
     </div>
   );
 }
-
-export default Home;

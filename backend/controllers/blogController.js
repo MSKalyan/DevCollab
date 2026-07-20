@@ -10,7 +10,7 @@ function isAdmin(req) {
 export const getCreateBlog = async (req, res) => {
   const { title, content, category } = req.body;
   const author = req.user.id;
-  const image = req.file ? req.file.filename : null;
+  const image = req.file ? req.file.location : null;
 
   try {
     const blog = await createBlog(title, content, author, category, image);
@@ -29,7 +29,7 @@ export const getCreateBlog = async (req, res) => {
 export const postCreateBlog = async (req, res) => {
   const { title, content, category } = req.body;
   const author = req.user.id; // Assuming req.user contains the authenticated user's data
-  const image = req.file ? req.file.filename : null; // Get the uploaded image filename if exists
+  const image = req.file ? req.file.location : null; // Full S3 URL if uploaded
 
   try {
     const newBlog = await createBlog(title, content, author, category, image); // Pass image to the model
@@ -62,15 +62,18 @@ export const viewBlog = async (req, res) => {
     const comments = commentResult.rows;
 
     const likeCountResult = await pool.query(
-      'SELECT COUNT(*) FROM likes WHERE blog_id = $1',
-      [id]
+      'SELECT COUNT(*) FROM reactions WHERE blog_id = $1 AND type = $2',
+      [id, 'like']
     );
-    console.log(blog);
+
+    const likeCount = parseInt(likeCountResult.rows[0].count, 10);
+
     res.json({
       success: true,
       data: {
         blog,
-        comments
+        comments,
+        likeCount
       }
     });
   } catch (err) {
@@ -219,6 +222,7 @@ export const getEditBlog = async (req, res) => {
 export const postEditBlog = async (req, res) => {
   const { id } = req.params;
   const { title, content } = req.body;
+  const image = req.file ? req.file.location : null; // Full S3 URL if a new image was uploaded
 
   try {
     const blog = await getBlogById(id); // Use the getBlogByUserId function from the model
@@ -231,8 +235,8 @@ export const postEditBlog = async (req, res) => {
       return res.status(403).send('You can only edit your own blogs');
     }
 
-    // Update the blog with new data
-    const updatedBlog = await updateBlog(id, title, content); // Use the updateBlog function from the model
+    // Update the blog with new data (image only replaced when a new file is uploaded)
+    const updatedBlog = await updateBlog(id, title, content, image); // Use the updateBlog function from the model
     res.json({success:true,data:updatedBlog.id}); // Redirect to the individual blog post after editing
   } catch (err) {
     console.error(err);

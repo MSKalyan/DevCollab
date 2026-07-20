@@ -1,55 +1,72 @@
-import { Home, BookOpen, User } from "lucide-react";
-import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
-import api from "../api/api";
+import React from "react";
+import { NavLink } from "react-router-dom";
+import { Home, BookOpen, User, PenLine, X } from "lucide-react";
+import Logo from "./ui/Logo";
+import useAuth from "../hooks/useAuth";
 
-function Sidebar({ isOpen }) {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+const links = [
+  { to: "/", label: "Home", icon: Home, end: true },
+  { to: "/myblogs", label: "My Blogs", icon: BookOpen },
+  { to: "/editprofile", label: "Profile", icon: User },
+  { to: "/create", label: "New Blog", icon: PenLine },
+];
 
-  useEffect(() => {
-    api
-      .get("/auth/me")
-      .then(() => setIsLoggedIn(true))
-      .catch(() => setIsLoggedIn(false));
-  }, []);
-
+function Sidebar({ open, onClose }) {
+  const { isLoggedIn } = useAuth();
   if (!isLoggedIn) return null;
 
   return (
-    <aside
-      className={`fixed top-[64px] left-0 h-[calc(100vh-64px)] w-64 bg-gray-100 shadow-md z-20 transform transition-transform duration-300 ease-in-out ${
-        isOpen ? "translate-x-0" : "-translate-x-full"
-      }`}
-    >
-      <ul className="p-4 space-y-4">
-        <li>
-          <Link
-            to="/"
-            className="flex items-center gap-2 cursor-pointer hover:text-blue-600"
-          >
-            <Home /> Home
-          </Link>
-        </li>
+    <>
+      {open && (
+        <div
+          className="fixed inset-0 z-30 bg-black/60 lg:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
 
-        <li>
-          <Link
-            to="/myblogs"
-            className="flex items-center gap-2 cursor-pointer hover:text-blue-600"
+      <aside
+        className={[
+          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-line bg-bg-soft pt-16 transition-transform duration-300",
+          open ? "translate-x-0" : "-translate-x-full",
+        ].join(" ")}
+      >
+        <div className="flex items-center justify-between px-5 py-4 lg:hidden">
+          <Logo />
+          <button
+            onClick={onClose}
+            aria-label="Close sidebar"
+            className="rounded-lg p-1.5 text-ink-muted hover:bg-surface-2 hover:text-ink"
           >
-            <BookOpen /> My Blogs
-          </Link>
-        </li>
+            <X className="h-5 w-5" />
+          </button>
+        </div>
 
-        <li>
-          <Link
-            to="/editprofile"
-            className="flex items-center gap-2 cursor-pointer hover:text-blue-600"
-          >
-            <User /> Profile
-          </Link>
-        </li>
-      </ul>
-    </aside>
+        <nav className="flex-1 space-y-1 px-3 py-4">
+          <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-ink-muted">
+            Menu
+          </p>
+          {links.map(({ to, label, icon: Icon, end }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              onClick={onClose}
+              className={({ isActive }) =>
+                ["nav-link", isActive ? "nav-link-active" : ""].join(" ")
+              }
+            >
+              <Icon className="h-5 w-5 shrink-0" />
+              {label}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="border-t border-line p-4">
+          <p className="text-xs text-ink-muted">Inkwell · Share your stories</p>
+        </div>
+      </aside>
+    </>
   );
 }
 
