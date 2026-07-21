@@ -6,6 +6,7 @@ import AuthLayout from "../components/ui/AuthLayout";
 import Button from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { useToast } from "../components/ui/Toast";
+import useAuth from "../hooks/useAuth";
 import { Mail, Lock } from "lucide-react";
 
 export default function Login() {
@@ -15,6 +16,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
+  const { login } = useAuth();
   const googleClientId = null;
 
   const handleSubmit = async (e) => {
@@ -22,11 +24,12 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      await api.post("/auth/login", { email, password });
+      await login(() => api.post("/auth/login", { email, password }));
       toast.success("Welcome back!");
       navigate("/blogs");
     } catch (err) {
-      const msg = err.response?.data?.message || "Login failed";
+      const data = err.response?.data;
+      const msg = (data && (data.message || (typeof data === "string" ? data : null))) || "Login failed";
       setError(msg);
       toast.error(msg);
     } finally {
@@ -52,7 +55,7 @@ export default function Login() {
           <GoogleLogin
             onSuccess={async (credentialResponse) => {
               try {
-                await api.post("/auth/google", { credential: credentialResponse.credential });
+                await login(() => api.post("/auth/google", { credential: credentialResponse.credential }));
                 toast.success("Signed in with Google");
                 navigate("/blogs");
               } catch {

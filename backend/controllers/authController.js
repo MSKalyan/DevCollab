@@ -13,6 +13,7 @@ import {
   deleteRefreshToken,
   deleteAllUserRefreshTokens,
 } from "../models/refreshTokenModel.js";
+import { sendError, sendServerError } from "../utils/response.js";
 
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -80,7 +81,7 @@ export const postLogin = async (req, res) => {
 
     // If user not found
     if (userResult.rows.length === 0) {
-      return res.status(400).send('Invalid credentials');
+      return sendError(res, 400, 'Invalid email or password.');
     }
 
     const user = userResult.rows[0];
@@ -88,22 +89,21 @@ export const postLogin = async (req, res) => {
 
     // If password does not match
     if (!isMatch) {
-      return res.status(400).send('Invalid credentials');
+      return sendError(res, 400, 'Invalid email or password.');
     }
 
     // Generate JWT tokens (set as httpOnly cookies)
     await issueTokens(res, user);
 
-res.json({
-  success: true,
-  message: "Login successful",
-  role: user.role
-});
+    res.json({
+      success: true,
+      message: "Login successful",
+      role: user.role
+    });
 
-}
-catch (err) {
-    console.error(err);
-    return res.status(500).send('Server error');
+  }
+  catch (err) {
+    return sendServerError(res, err, 'Server error');
   }
 };
 
@@ -115,7 +115,7 @@ export const postRegister = async (req, res) => {
   const { name, email, password } = req.body;
 
   if (!name || !email || !password) {
-    return res.status(400).send("Name, email, and password are required.");
+    return sendError(res, 400, "Name, email, and password are required.");
   }
 
   try {
@@ -135,8 +135,10 @@ export const postRegister = async (req, res) => {
 
     res.status(201).json({success:true,message:'User registered successfully'});
   } catch (error) {
-    console.error('Error registering user:', error);
-    res.status(500).send('Error registering user.');
+    if (error && error.code === "23505") {
+      return res.status(409).json({ success: false, message: "Email already registered." });
+    }
+    return sendServerError(res, error, 'Error registering user.');
   }
 };
 

@@ -9,11 +9,12 @@ Users can sign up, create/manage blogs with image uploads, comment, and admins c
 
 | Layer | Technology |
 |-------|-------------|
-| Frontend | React 19, React Router 7, Axios |
+| Frontend | React 19, React Router 7, Axios, Tailwind CSS |
 | Backend | Node.js + Express 5 |
-| Database | PostgreSQL |
-| Auth | JSON Web Token (JWT) |
-| File Uploads | Multer |
+| Database | PostgreSQL (Supabase) |
+| Auth | JSON Web Token (JWT) — access + refresh tokens in httpOnly cookies, server-side refresh-token revocation |
+| File Uploads | Amazon S3 via `multer-s3` |
+| Security | Helmet, CORS with credentials, rate-limited auth endpoints |
 | OAuth | Google Sign-In (`google-auth-library`) |
 
 ---

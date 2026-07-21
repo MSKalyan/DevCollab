@@ -18,6 +18,11 @@
     "web-vitals": "^2.1.4"
   },
   "proxy": "http://localhost:5000",
+  "jest": {
+    "moduleNameMapper": {
+      "^react-router/dom$": "<rootDir>/node_modules/react-router/dist/development/dom-export.js"
+    }
+  },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",

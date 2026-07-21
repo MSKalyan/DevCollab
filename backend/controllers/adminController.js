@@ -1,5 +1,6 @@
-import { getAllUsers, getUserById, getUserBlogs, getUserNameById, deleteUser, deleteBlog } from '../models/adminModel.js';
+import { getAllUsers, fetchAllBlogs, getUserById, getUserBlogs, getUserNameById, deleteUser, deleteBlog } from '../models/adminModel.js';
 import pool from '../models/db.js';
+import { sendError, sendServerError } from "../utils/response.js";
 
 export const adminPanel = async (req, res) => {  try {
     const page = parseInt(req.query.page) || 1;
@@ -41,12 +42,55 @@ export const adminPanel = async (req, res) => {  try {
       role
     }
   }
-});
+ });
 }catch (err) {
-    console.error(err);
-    res.status(500).send('Server Error');
+    return sendServerError(res, err);
   }
 }
+
+// List all blogs across users for the admin panel.
+export const getAllBlogs = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = 10;
+    const search = req.query.search || '';
+    const category = req.query.category || '';
+
+    const blogs = await fetchAllBlogs(page, limit, search, category);
+
+    const filterParams = [`%${search}%`];
+    let filterQuery = `
+      SELECT COUNT(*) FROM blogs
+      WHERE (title ILIKE $1 OR content ILIKE $1)
+    `;
+    if (category) {
+      filterQuery += ` AND category = $2`;
+      filterParams.push(category);
+    }
+    const countResult = await pool.query(filterQuery, filterParams);
+    const totalBlogs = parseInt(countResult.rows[0].count);
+    const totalPages = Math.ceil(totalBlogs / limit);
+
+    res.json({
+      success: true,
+      data: {
+        blogs,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          limit,
+          totalBlogs
+        },
+        filters: {
+          search,
+          category
+        }
+      }
+    });
+  } catch (err) {
+    return sendServerError(res, err);
+  }
+};
 export const viewUserBlogs = async (req, res) => {
   const { id } = req.params;
   const page = parseInt(req.query.page) || 1;
@@ -91,8 +135,7 @@ res.json({
     });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).send('Server Error');
+    return sendServerError(res, err);
   }
 };
 
@@ -103,8 +146,7 @@ export const handleDeleteBlog = async (req, res) => {
     await deleteBlog(id);  // Delete the blog
     res.json({success:true,message:"deleted successfully"});
   } catch (err) {
-    console.error(err);
-    res.status(500).send('Server Error');
+    return sendServerError(res, err);
   }
 };
 
@@ -115,7 +157,6 @@ export const handleDeleteUser = async (req, res) => {
     await deleteUser(id); // Delete the user from the database
     res.json({success:true,message:"Operation completed successfully"}); // Redirect to admin panel after user deletion
   } catch (err) {
-    console.error(err);
-    res.status(500).send('Server Error');
+    return sendServerError(res, err);
   }
 };

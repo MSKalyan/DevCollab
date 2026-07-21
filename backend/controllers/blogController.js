@@ -1,5 +1,6 @@
 import { createBlog, getAllBlogs, getAllMyBlogs, getBlogById, updateBlog, deleteBlog as deleteBlogFromModel } from '../models/blogModel.js';
 import pool from "../models/db.js";
+import { sendError, sendServerError } from "../utils/response.js";
 
 // Admins may act on any blog; regular users are limited to their own.
 function isAdmin(req) {
@@ -34,9 +35,8 @@ export const postCreateBlog = async (req, res) => {
   try {
     const newBlog = await createBlog(title, content, author, category, image); // Pass image to the model
     res.status(201).json({success:true,message:"Blog created successfully",data:newBlog});
- } catch (err) {
-    console.error(err);
-    res.status(500).send('Server Error');
+  } catch (err) {
+    return sendServerError(res, err);
   }
 };
 
@@ -47,7 +47,7 @@ export const viewBlog = async (req, res) => {
     const blog = await getBlogById(id);
 
     if (!blog) {
-      return res.status(404).send('Blog not found');
+      return sendError(res, 404, 'Blog not found');
     }
 
     // Fetch comments related to this blog
@@ -61,6 +61,13 @@ export const viewBlog = async (req, res) => {
 
     const comments = commentResult.rows;
 
+    // Resolve the author's display name from the joined users table.
+    const authorResult = await pool.query(
+      'SELECT name FROM users WHERE id = $1',
+      [blog.author]
+    );
+    const authorName = authorResult.rows[0]?.name || "Unknown";
+
     const likeCountResult = await pool.query(
       'SELECT COUNT(*) FROM reactions WHERE blog_id = $1 AND type = $2',
       [id, 'like']
@@ -71,14 +78,13 @@ export const viewBlog = async (req, res) => {
     res.json({
       success: true,
       data: {
-        blog,
+        blog: { ...blog, author_name: authorName },
         comments,
         likeCount
       }
     });
   } catch (err) {
-    console.error("Error fetching blog:", err);
-    res.status(500).send('Server Error');
+    return sendServerError(res, err);
   }
 };
 
@@ -145,9 +151,10 @@ export const getBlogList = async (req, res) => {
     // fetch paginated blogs
     const blogsResult = await pool.query(
       `
-      SELECT *
+      SELECT blogs.*, users.name AS author_name
       FROM blogs
-      ORDER BY created_at DESC
+      JOIN users ON blogs.author = users.id
+      ORDER BY blogs.created_at DESC
       LIMIT $1 OFFSET $2
       `,
       [limit, offset]
@@ -175,8 +182,7 @@ export const getMyBlogs = async (req, res) => {
     const blogs = await getAllMyBlogs(userId); // Fetch blogs where author matches userId
     res.json({success:true,data:blogs});
   } catch (err) {
-    console.error(err);
-    res.status(500).send('Server Error');
+    return sendServerError(res, err);
   }
 };
 
@@ -196,10 +202,7 @@ export const getEditBlog = async (req, res) => {
 
     // Authorization check
     if (blog.author !== req.user.id && !isAdmin(req)) {
-      return res.status(403).json({
-        success: false,
-        message: 'You can only edit your own blogs'
-      });
+      return sendError(res, 403, 'You can only edit your own blogs');
     }
 
     // Send blog data to frontend
@@ -227,20 +230,19 @@ export const postEditBlog = async (req, res) => {
   try {
     const blog = await getBlogById(id); // Use the getBlogByUserId function from the model
     if (!blog) {
-      return res.status(404).send('Blog not found');
+      return sendError(res, 404, 'Blog not found');
     }
 
     // Authorization check
     if (blog.author !== req.user.id && !isAdmin(req)) {
-      return res.status(403).send('You can only edit your own blogs');
+      return sendError(res, 403, 'You can only edit your own blogs');
     }
 
     // Update the blog with new data (image only replaced when a new file is uploaded)
     const updatedBlog = await updateBlog(id, title, content, image); // Use the updateBlog function from the model
     res.json({success:true,data:updatedBlog.id}); // Redirect to the individual blog post after editing
   } catch (err) {
-    console.error(err);
-    res.status(500).send('Server Error');
+    return sendServerError(res, err);
   }
 };
 
@@ -251,18 +253,17 @@ export const handleDeleteBlog = async (req, res) => {
   try {
     const blog = await getBlogById(id);  // Fetch the blog from the database
     if (!blog) {
-      return res.status(404).send('Blog not found');
+      return sendError(res, 404, 'Blog not found');
     }
 
     // Check if the logged-in user is the author of the blog
     if (blog.author !== req.user.id && !isAdmin(req)) {
-      return res.status(403).send('You can only delete your own blogs');
+      return sendError(res, 403, 'You can only delete your own blogs');
     }
 
     const deletedBlog = await deleteBlogFromModel(id); // Delete the blog
     res.json({success:true,message:'Blog deleted'}); // Redirect to the blogs list page after deletion
   } catch (err) {
-    console.error(err);
-    res.status(500).send('Server Error');
+    return sendServerError(res, err);
   }
 };

@@ -71,7 +71,7 @@ export default function BlogDetails() {
       </Link>
 
       <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-ink-muted">
-        <span className="font-medium text-ink-soft">{blog.author}</span>
+        <span className="font-medium text-ink-soft">{blog.author_name || blog.author}</span>
         {blog.category && <span className="badge badge-neutral">{blog.category}</span>}
         {blog.created_at && (
           <span className="inline-flex items-center gap-1.5">

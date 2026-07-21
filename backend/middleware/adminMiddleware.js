@@ -5,7 +5,7 @@ function requireAdmin(req, res, next) {
       return next(); // Allow the request to continue to the next handler (admin route)
     }
     // If not an admin, deny access and return a 403 Forbidden status
-    res.status(403).send('Access denied: Admins only.');
+    res.status(403).json({ success: false, message: 'Access denied: Admins only.' });
   }
   
   export default requireAdmin;

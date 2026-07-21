@@ -6,10 +6,12 @@ import requireAdmin from '../middleware/adminMiddleware.js';  // Import the requ
 const router = express.Router();
 router.get('/adminpanel', requireAuth, requireAdmin, adminController.adminPanel);
 
+router.get('/blogs', requireAuth, requireAdmin, adminController.getAllBlogs);
+
 router.get('/users/:id/blogs', requireAuth, requireAdmin, adminController.viewUserBlogs);
 
-router.get('/blogs/:id/delete', requireAuth, requireAdmin, adminController.handleDeleteBlog);
+router.delete('/blogs/:id', requireAuth, requireAdmin, adminController.handleDeleteBlog);
 
-router.get('/users/:id/delete', requireAuth, requireAdmin, adminController.handleDeleteUser);
+router.delete('/users/:id', requireAuth, requireAdmin, adminController.handleDeleteUser);
 
 export default router;

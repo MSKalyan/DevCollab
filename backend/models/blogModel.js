@@ -34,7 +34,6 @@ export const getBlogById = async (blogId) => {
   `;
   const values = [blogId];
   const result = await pool.query(query, values);
-  console.log(result.rows[0]);
   return result.rows[0]; // Return single blog
 };
 

@@ -1,8 +1,10 @@
-import { useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import api from "../api/api";
 
-export default function useAuth() {
-  const [user, setUser] = useState(null); // { ...profile, role }
+const AuthContext = createContext(null);
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
@@ -22,6 +24,11 @@ export default function useAuth() {
     refresh();
   }, [refresh]);
 
+  const login = useCallback(async (fn) => {
+    await fn();
+    await refresh();
+  }, [refresh]);
+
   const logout = useCallback(async () => {
     try {
       await api.post("/auth/logout");
@@ -31,12 +38,23 @@ export default function useAuth() {
     setUser(null);
   }, []);
 
-  return {
+  const value = {
     user,
     isLoggedIn: !!user,
     role: user?.role || null,
     loading,
     refresh,
+    login,
     logout,
   };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export default function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return ctx;
 }

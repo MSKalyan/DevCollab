@@ -5,6 +5,7 @@ import AuthLayout from "../components/ui/AuthLayout";
 import Button from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { useToast } from "../components/ui/Toast";
+import useAuth from "../hooks/useAuth";
 import { User, Mail, Lock } from "lucide-react";
 
 export default function Register() {
@@ -13,6 +14,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
+  const { login } = useAuth();
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
@@ -25,9 +27,9 @@ export default function Register() {
     }
     setLoading(true);
     try {
-      await api.post("/auth/register", { name: form.name, email: form.email, password: form.password });
-      toast.success("Account created — please sign in.");
-      navigate("/login");
+      await login(() => api.post("/auth/register", { name: form.name, email: form.email, password: form.password }));
+      toast.success("Account created — welcome to Inkwell!");
+      navigate("/blogs");
     } catch (err) {
       const msg = err.response?.data?.message || "Registration failed";
       setError(msg);

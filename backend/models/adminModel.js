@@ -19,6 +19,27 @@ export const getAllUsers = async (page, limit, search, role) => {
     const result = await pool.query(query, values);
     return result.rows;
   };
+
+  export const fetchAllBlogs = async (page, limit, search, category) => {
+    const offset = (page - 1) * limit;
+    const values = [`%${search}%`, limit, offset];
+    let query = `
+      SELECT blogs.*, users.name AS author_name
+      FROM blogs
+      JOIN users ON blogs.author = users.id
+      WHERE (blogs.title ILIKE $1 OR blogs.content ILIKE $1)
+    `;
+
+    if (category) {
+      query += ` AND blogs.category = $4`;
+      values.push(category);
+    }
+
+    query += ` ORDER BY blogs.created_at DESC LIMIT $2 OFFSET $3`;
+
+    const result = await pool.query(query, values);
+    return result.rows;
+  };
   
   export const getUserBlogs = async (id, page, limit, search, category) => {
     const offset = (page - 1) * limit;

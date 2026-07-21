@@ -5,6 +5,7 @@ import Button from "./ui/Button";
 
 function BlogCard({ blog, name, showActions = false, onEdit, onDelete }) {
   const navigate = useNavigate();
+  const authorName = blog.author_name || name;
   const imageUrl = blog.image
     ? (blog.image.startsWith('http')
         ? blog.image
@@ -15,7 +16,7 @@ function BlogCard({ blog, name, showActions = false, onEdit, onDelete }) {
     <article className="card card-hover flex flex-col gap-5 p-5 sm:flex-row sm:items-center animate-fade-in">
       <div className="min-w-0 flex-1">
         <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
-          <span className="font-medium text-ink-soft">{name}</span>
+          <span className="font-medium text-ink-soft">{authorName}</span>
           {blog.category && <span className="badge badge-neutral">{blog.category}</span>}
         </div>
 

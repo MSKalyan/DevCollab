@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import { ToastProvider } from "./components/ui/Toast";
+import { AuthProvider } from "./hooks/useAuth";
 import Home from "./pages/Home";
 import BlogList from "./pages/BlogList";
 import BlogDetails from "./pages/BlogDetails";
@@ -18,21 +19,23 @@ function App() {
   return (
     <Router>
       <ToastProvider>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/blogs" element={<BlogList />} />
-            <Route path="/blogs/:id" element={<BlogDetails />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/myblogs" element={<MyBlogs/>}/>
-            <Route path="/create" element={<CreateBlog/>}/>
-          <Route path="/blogs/:id/edit" element={<EditBlog/>}/>
-            <Route path="/editprofile" element={<EditProfile/>}/>
-          <Route path="/admin" element={<AdminRoute><Admin/></AdminRoute>}/>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        </Layout>
+        <AuthProvider>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/blogs" element={<BlogList />} />
+              <Route path="/blogs/:id" element={<BlogDetails />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/myblogs" element={<MyBlogs/>}/>
+              <Route path="/create" element={<CreateBlog/>}/>
+            <Route path="/blogs/:id/edit" element={<EditBlog/>}/>
+              <Route path="/editprofile" element={<EditProfile/>}/>
+            <Route path="/admin" element={<AdminRoute><Admin/></AdminRoute>}/>
+            <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Layout>
+        </AuthProvider>
       </ToastProvider>
     </Router>
   )
