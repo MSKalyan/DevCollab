@@ -14,6 +14,7 @@ import {
   deleteAllUserRefreshTokens,
 } from "../models/refreshTokenModel.js";
 import { sendError, sendServerError } from "../utils/response.js";
+import { createContactRequest, getDevelopers, getUserProfile, getUserProjects } from "../models/userModel.js";
 
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -236,4 +237,39 @@ export const updateProfile = async (req, res) => {
       message: "Failed to update profile",
     });
   }
+};
+
+export const listDevelopers = async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 12, 1), 50);
+    const { search = "", tech = "" } = req.query;
+    const { developers, total } = await getDevelopers(page, limit, search, tech);
+    res.json({ success: true, developers, page, total, totalPages: Math.ceil(total / limit) });
+  } catch (err) {
+    return sendServerError(res, err);
+  }
+};
+
+export const getDeveloperProfile = async (req, res) => {
+  try {
+    const developer = await getUserProfile(req.params.id);
+    if (!developer) return sendError(res, 404, "Developer not found");
+    const projects = await getUserProjects(req.params.id);
+    const { email, ...publicDeveloper } = developer;
+    res.json({ success: true, data: { developer: publicDeveloper, projects } });
+  } catch (err) { return sendServerError(res, err); }
+};
+
+export const requestContact = async (req, res) => {
+  const recipientId = Number(req.params.id);
+  const message = req.body?.message?.trim();
+  if (!message) return sendError(res, 400, "A contact message is required");
+  if (recipientId === req.user.id) return sendError(res, 400, "You cannot contact yourself");
+  try {
+    const developer = await getUserProfile(recipientId);
+    if (!developer) return sendError(res, 404, "Developer not found");
+    const request = await createContactRequest(recipientId, req.user.id, message);
+    res.status(201).json({ success: true, data: request, message: "Contact request sent" });
+  } catch (err) { return sendServerError(res, err); }
 };

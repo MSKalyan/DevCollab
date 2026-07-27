@@ -1,13 +1,13 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Sparkles, BookOpen, Users, PenLine } from "lucide-react";
+import { ArrowRight, Sparkles, Users, Star, Code2 } from "lucide-react";
 import Button from "../components/ui/Button";
 import useAuth from "../hooks/useAuth";
 
 const features = [
-  { icon: Sparkles, title: "Write with focus", desc: "A clean editor that gets out of your way so the words flow." },
-  { icon: BookOpen, title: "Publish beautifully", desc: "Your posts render in a refined, reading-first layout." },
-  { icon: Users, title: "Build a community", desc: "Threaded comments and reactions keep the conversation going." },
+  { icon: Code2, title: "Showcase Your Work", desc: "Build a beautiful portfolio of your projects, complete with GitHub repositories, live demo links, and tech stacks." },
+  { icon: Star, title: "Get Code Reviews", desc: "Receive construction reviews and ratings from other senior developers in the community to polish your code." },
+  { icon: Users, title: "Find Collaborators & Hire", desc: "Discover other developers with complementary skills to build products together or find recruitment opportunities." },
 ];
 
 export default function Home() {
@@ -18,30 +18,37 @@ export default function Home() {
       <section className="animate-fade-in py-12 text-center sm:py-20">
         <span className="badge badge-brand mx-auto mb-5">
           <Sparkles className="h-3.5 w-3.5" />
-          A modern home for your writing
+          The Developer Collaboration & Portfolio Hub
         </span>
         <h1 className="mx-auto max-w-3xl text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
-          Stories worth sharing, made <span className="text-gradient">simple</span>.
+          Build together. Learn together. Grow <span className="text-gradient">bigger</span>.
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-lg text-ink-muted">
-          Inkwell is a calm, focused space to publish blogs, grow an audience,
-          and connect through thoughtful discussion.
+          DevCollab is a modern space for developers to showcase their projects, request code feedback,
+          and find talented partners to co-create amazing digital products.
         </p>
 
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           {isLoggedIn ? (
-            <Link to="/blogs">
-              <Button size="lg">
-                Explore blogs
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
+            <div className="flex gap-4">
+              <Link to="/projects">
+                <Button size="lg">
+                  Explore Projects
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link to="/create">
+                <Button variant="secondary" size="lg">
+                  Share Your Project
+                </Button>
+              </Link>
+            </div>
           ) : (
             <>
               <Link to="/register">
                 <Button size="lg">
                   Get started
-                  <PenLine className="h-4 w-4" />
+                  <Sparkles className="h-4 w-4" />
                 </Button>
               </Link>
               <Link to="/login">

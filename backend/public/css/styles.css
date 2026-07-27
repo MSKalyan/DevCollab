@@ -104,7 +104,7 @@ th {
     color: white;
 }
 
-/* Blog list */
+/* Project list */
 ul {
     list-style: none;
     padding-left: 0;
@@ -137,7 +137,7 @@ a {
 a:hover {
     text-decoration: underline;
 }
-.blog-image {
+.project-image {
     width: 100%;
     max-width: 600px;
     height: auto; /* maintains aspect ratio */

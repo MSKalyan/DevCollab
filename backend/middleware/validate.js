@@ -28,13 +28,13 @@ export function validateLogin({ email, password }) {
   return errors;
 }
 
-export function validateBlog({ title, content }) {
+export function validateProject({ title, description }) {
   const errors = [];
   if (!title || typeof title !== "string" || title.trim().length < 3) {
     errors.push("Title must be at least 3 characters.");
   }
-  if (!content || typeof content !== "string" || content.trim().length < 10) {
-    errors.push("Content must be at least 10 characters.");
+  if (!description || typeof description !== "string" || description.trim().length < 10) {
+    errors.push("Description must be at least 10 characters.");
   }
   return errors;
 }

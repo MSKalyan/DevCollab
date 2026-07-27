@@ -45,14 +45,14 @@ describe("POST /api/auth/login validation", () => {
 const TEST_DB = process.env.DATABASE_URL_TEST;
 const maybe = TEST_DB ? describe : describe.skip;
 
-maybe("Auth + blogs smoke (needs DATABASE_URL_TEST)", () => {
+maybe("Auth + projects smoke (needs DATABASE_URL_TEST)", () => {
   let cookies;
 
   before(async () => {
     process.env.DATABASE_URL = TEST_DB;
   });
 
-  test("registers, creates a blog, lists and deletes it", async () => {
+  test("registers, creates a project, lists and deletes it", async () => {
     const email = `test_${Date.now()}@example.com`;
     const reg = await request(app)
       .post("/api/auth/register")
@@ -61,18 +61,18 @@ maybe("Auth + blogs smoke (needs DATABASE_URL_TEST)", () => {
     cookies = reg.headers["set-cookie"];
 
     const create = await request(app)
-      .post("/api/blogs/create")
+      .post("/api/projects/create")
       .set("Cookie", cookies)
       .field("title", "Hello World")
-      .field("content", "This is a test blog post.")
+      .field("description", "This is a test project description.")
       .field("category", "test");
     assert.equal(create.status, 201);
-    const blogId = create.body.data.id;
+    const projectId = create.body.data.id;
 
-    const list = await request(app).get("/api/blogs").set("Cookie", cookies);
+    const list = await request(app).get("/api/projects").set("Cookie", cookies);
     assert.equal(list.status, 200);
 
-    const del = await request(app).delete(`/api/blogs/${blogId}`).set("Cookie", cookies);
+    const del = await request(app).delete(`/api/projects/${projectId}`).set("Cookie", cookies);
     assert.equal(del.status, 200);
   });
 });

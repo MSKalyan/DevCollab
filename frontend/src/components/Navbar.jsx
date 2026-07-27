@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Menu, Search, LogOut, ShieldCheck, Bell } from "lucide-react";
 import Logo from "./ui/Logo";
@@ -7,11 +7,18 @@ import useAuth from "../hooks/useAuth";
 
 function Navbar({ toggleSidebar }) {
   const navigate = useNavigate();
+  const [search, setSearch] = useState("");
   const { user, isLoggedIn, role, logout } = useAuth();
 
   const handleLogout = async () => {
     await logout();
     navigate("/");
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    const query = search.trim();
+    navigate(query ? `/projects?search=${encodeURIComponent(query)}` : "/projects");
   };
 
   return (
@@ -31,15 +38,17 @@ function Navbar({ toggleSidebar }) {
         </div>
 
         {isLoggedIn && (
-          <div className="relative hidden flex-1 max-w-md md:block">
+          <form className="relative hidden flex-1 max-w-md md:block" onSubmit={handleSearch}>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
             <input
               type="search"
-              placeholder="Search blogs…"
-              aria-label="Search blogs"
+              placeholder="Search projects, tags, developers…"
+              aria-label="Search projects, tags, or developers"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               className="field pl-9"
             />
-          </div>
+          </form>
         )}
 
         <div className="flex items-center gap-2 sm:gap-3">

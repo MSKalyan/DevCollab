@@ -28,8 +28,8 @@ export default function Register() {
     setLoading(true);
     try {
       await login(() => api.post("/auth/register", { name: form.name, email: form.email, password: form.password }));
-      toast.success("Account created — welcome to Inkwell!");
-      navigate("/blogs");
+      toast.success("Account created — welcome to DevCollab!");
+      navigate("/projects");
     } catch (err) {
       const msg = err.response?.data?.message || "Registration failed";
       setError(msg);
@@ -42,7 +42,7 @@ export default function Register() {
   return (
     <AuthLayout
       title="Create your account"
-      subtitle="Join Inkwell and start publishing in minutes."
+      subtitle="Join DevCollab and start sharing your work."
       footer={
         <>
           Already have an account?{" "}

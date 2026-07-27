@@ -1,14 +1,16 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { Home, BookOpen, User, PenLine, X } from "lucide-react";
+import { Home, Compass, Folder, PlusSquare, Users, User, X } from "lucide-react";
 import Logo from "./ui/Logo";
 import useAuth from "../hooks/useAuth";
 
 const links = [
   { to: "/", label: "Home", icon: Home, end: true },
-  { to: "/myblogs", label: "My Blogs", icon: BookOpen },
+  { to: "/projects", label: "Explore Projects", icon: Compass },
+  { to: "/myprojects", label: "My Projects", icon: Folder },
+  { to: "/create", label: "Share Project", icon: PlusSquare },
+  { to: "/developers", label: "Developers", icon: Users },
   { to: "/editprofile", label: "Profile", icon: User },
-  { to: "/create", label: "New Blog", icon: PenLine },
 ];
 
 function Sidebar({ open, onClose }) {
@@ -63,7 +65,7 @@ function Sidebar({ open, onClose }) {
         </nav>
 
         <div className="border-t border-line p-4">
-          <p className="text-xs text-ink-muted">Inkwell · Share your stories</p>
+          <p className="text-xs text-ink-muted">DevCollab · Build together</p>
         </div>
       </aside>
     </>

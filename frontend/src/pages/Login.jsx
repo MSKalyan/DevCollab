@@ -26,7 +26,7 @@ export default function Login() {
     try {
       await login(() => api.post("/auth/login", { email, password }));
       toast.success("Welcome back!");
-      navigate("/blogs");
+      navigate("/projects");
     } catch (err) {
       const data = err.response?.data;
       const msg = (data && (data.message || (typeof data === "string" ? data : null))) || "Login failed";
@@ -39,8 +39,8 @@ export default function Login() {
 
   return (
     <AuthLayout
-      title="Sign in to Inkwell"
-      subtitle="Welcome back — let's get you writing."
+      title="Sign in to DevCollab"
+      subtitle="Welcome back — let's build together."
       footer={
         <>
           Don't have an account?{" "}
@@ -57,7 +57,7 @@ export default function Login() {
               try {
                 await login(() => api.post("/auth/google", { credential: credentialResponse.credential }));
                 toast.success("Signed in with Google");
-                navigate("/blogs");
+                navigate("/projects");
               } catch {
                 toast.error("Google login failed");
               }

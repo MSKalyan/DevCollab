@@ -8,7 +8,7 @@ import EmptyState from "../components/ui/EmptyState";
 import { FullPageLoader } from "../components/ui/Spinner";
 import { ConfirmDialog } from "../components/ui/Modal";
 import { useToast } from "../components/ui/Toast";
-import { Users, FileText, Trash2, Eye, ShieldCheck, LayoutDashboard } from "lucide-react";
+import { Users, FolderGit2, Trash2, Eye, ShieldCheck, LayoutDashboard } from "lucide-react";
 
 function Kpi({ icon: Icon, label, value, tint }) {
   return (
@@ -45,7 +45,7 @@ function Table({ headers, children }) {
 
 export default function Admin() {
   const [users, setUsers] = useState([]);
-  const [blogs, setBlogs] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -55,9 +55,9 @@ export default function Admin() {
     const fetchData = async () => {
       try {
         const userRes = await api.get("/admin/adminpanel");
-        setUsers(userRes.data.users || []);
-        const blogRes = await api.get("/admin/blogs");
-        setBlogs(blogRes.data.blogs || []);
+        setUsers(userRes.data.data?.users || []);
+        const projectRes = await api.get("/admin/projects");
+        setProjects(projectRes.data.data?.projects || []);
       } catch {
         toast.error("Failed to load admin data.");
       } finally {
@@ -77,9 +77,9 @@ export default function Admin() {
         setUsers((prev) => prev.filter((u) => u.id !== pending.item.id));
         toast.success("User deleted.");
       } else {
-        await api.delete(`/admin/blogs/${pending.item.id}`);
-        setBlogs((prev) => prev.filter((b) => b.id !== pending.item.id));
-        toast.success("Blog deleted.");
+        await api.delete(`/admin/projects/${pending.item.id}`);
+        setProjects((prev) => prev.filter((project) => project.id !== pending.item.id));
+        toast.success("Project deleted.");
       }
     } catch {
       toast.error("Could not delete. Please try again.");
@@ -101,7 +101,7 @@ export default function Admin() {
 
       <div className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Kpi icon={Users} label="Total Users" value={users.length} tint="bg-brand/10 text-brand-soft" />
-        <Kpi icon={FileText} label="Total Blogs" value={blogs.length} tint="bg-accent/10 text-accent" />
+        <Kpi icon={FolderGit2} label="Total Projects" value={projects.length} tint="bg-accent/10 text-accent" />
         <Kpi icon={LayoutDashboard} label="Admins" value={users.filter((u) => u.role === "admin").length} tint="bg-brand/10 text-brand-soft" />
       </div>
 
@@ -128,21 +128,21 @@ export default function Admin() {
       </section>
 
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-ink">Manage Blogs</h2>
-        {blogs.length === 0 ? (
-          <EmptyState icon={FileText} title="No blogs found" />
+        <h2 className="mb-4 text-lg font-semibold text-ink">Manage Projects</h2>
+        {projects.length === 0 ? (
+          <EmptyState icon={FolderGit2} title="No projects found" />
         ) : (
           <Table headers={["Title", "Author", "Actions"]}>
-            {blogs.map((b) => (
+            {projects.map((b) => (
               <tr key={b.id} className="transition hover:bg-surface-2">
                 <td className="px-5 py-3.5 font-medium text-ink">{b.title}</td>
                 <td className="px-5 py-3.5 text-ink-muted">{b.author_name}</td>
                 <td className="px-5 py-3.5">
                   <div className="flex justify-end gap-2">
-                    <Link to={`/blogs/${b.id}`}>
+                    <Link to={`/projects/${b.id}`}>
                       <Button variant="secondary" size="sm"><Eye className="h-4 w-4" /> View</Button>
                     </Link>
-                    <Button variant="dangerOutline" size="sm" onClick={() => setPending({ type: "blog", item: b })}>
+                    <Button variant="dangerOutline" size="sm" onClick={() => setPending({ type: "project", item: b })}>
                       <Trash2 className="h-4 w-4" /> Delete
                     </Button>
                   </div>
@@ -158,7 +158,7 @@ export default function Admin() {
         onClose={() => setPending(null)}
         onConfirm={confirmDelete}
         loading={busy}
-        title={`Delete ${pending?.type === "user" ? "user" : "blog"}?`}
+        title={`Delete ${pending?.type === "user" ? "user" : "project"}?`}
         message={pending ? `“${pending.item.name || pending.item.title}” will be permanently removed.` : ""}
         confirmLabel="Delete"
       />

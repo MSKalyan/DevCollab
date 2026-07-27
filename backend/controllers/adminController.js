@@ -1,8 +1,9 @@
-import { getAllUsers, fetchAllBlogs, getUserById, getUserBlogs, getUserNameById, deleteUser, deleteBlog } from '../models/adminModel.js';
+import { getAllUsers, fetchAllProjects, getUserById, getUserProjects, getUserNameById, deleteUser, deleteProject } from '../models/adminModel.js';
 import pool from '../models/db.js';
 import { sendError, sendServerError } from "../utils/response.js";
 
-export const adminPanel = async (req, res) => {  try {
+export const adminPanel = async (req, res) => {
+  try {
     const page = parseInt(req.query.page) || 1;
     const limit = 10;
     const search = req.query.search || '';
@@ -26,60 +27,59 @@ export const adminPanel = async (req, res) => {  try {
     const totalUsers = parseInt(countResult.rows[0].count);
     const totalPages = Math.ceil(totalUsers / limit);
 
-
- res.json({
-  success: true,
-  data: {
-    user: req.user,
-    users,
-    pagination: {
-      currentPage: page,
-      totalPages,
-      limit
-    },
-    filters: {
-      search,
-      role
-    }
-  }
- });
-}catch (err) {
+    res.json({
+      success: true,
+      data: {
+        user: req.user,
+        users,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          limit
+        },
+        filters: {
+          search,
+          role
+        }
+      }
+    });
+  } catch (err) {
     return sendServerError(res, err);
   }
-}
+};
 
-// List all blogs across users for the admin panel.
-export const getAllBlogs = async (req, res) => {
+// List all projects across users for the admin panel.
+export const getAllProjects = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = 10;
     const search = req.query.search || '';
     const category = req.query.category || '';
 
-    const blogs = await fetchAllBlogs(page, limit, search, category);
+    const projects = await fetchAllProjects(page, limit, search, category);
 
     const filterParams = [`%${search}%`];
     let filterQuery = `
-      SELECT COUNT(*) FROM blogs
-      WHERE (title ILIKE $1 OR content ILIKE $1)
+      SELECT COUNT(*) FROM projects
+      WHERE (title ILIKE $1 OR description ILIKE $1)
     `;
     if (category) {
       filterQuery += ` AND category = $2`;
       filterParams.push(category);
     }
     const countResult = await pool.query(filterQuery, filterParams);
-    const totalBlogs = parseInt(countResult.rows[0].count);
-    const totalPages = Math.ceil(totalBlogs / limit);
+    const totalProjects = parseInt(countResult.rows[0].count);
+    const totalPages = Math.ceil(totalProjects / limit);
 
     res.json({
       success: true,
       data: {
-        blogs,
+        projects,
         pagination: {
           currentPage: page,
           totalPages,
           limit,
-          totalBlogs
+          totalProjects
         },
         filters: {
           search,
@@ -91,41 +91,38 @@ export const getAllBlogs = async (req, res) => {
     return sendServerError(res, err);
   }
 };
-export const viewUserBlogs = async (req, res) => {
+
+export const viewUserProjects = async (req, res) => {
   const { id } = req.params;
   const page = parseInt(req.query.page) || 1;
   const limit = 10;
   const search = req.query.search || '';
-  const category = req.query.category || ''; // Corrected: use category param
+  const category = req.query.category || '';
 
   try {
-    // Calculate the OFFSET for pagination
-    const offset = (page - 1) * limit;
+    const projects = await getUserProjects(id, page, limit, search, category);
 
-    // Fetch blogs with pagination, search, and category filter
-    const blogs = await getUserBlogs(id, page, limit, search, category);
-
-    // Get the total number of blogs based on search and category filter
     const result = await pool.query(
-      'SELECT COUNT(*) FROM blogs WHERE author = $1 AND (title ILIKE $2 OR content ILIKE $2) AND ($3 = \'\' OR category = $3)',
+      'SELECT COUNT(*) FROM projects WHERE owner_id = $1 AND (title ILIKE $2 OR description ILIKE $2) AND ($3 = \'\' OR category = $3)',
       [id, `%${search}%`, category]
     );
     const userName = await getUserNameById(id);
-    const totalBlogs = parseInt(result.rows[0].count);
-    const totalPages = Math.ceil(totalBlogs / limit);
-res.json({
+    const totalProjects = parseInt(result.rows[0].count);
+    const totalPages = Math.ceil(totalProjects / limit);
+
+    res.json({
       success: true,
       data: {
         user: {
           id,
           name: userName
         },
-        blogs,
+        projects,
         pagination: {
           currentPage: page,
           totalPages,
           limit,
-          totalBlogs
+          totalProjects
         },
         filters: {
           search,
@@ -133,18 +130,17 @@ res.json({
         }
       }
     });
-
   } catch (err) {
     return sendServerError(res, err);
   }
 };
 
-// Delete a specific user's blog
-export const handleDeleteBlog = async (req, res) => {
+// Delete a specific user's project
+export const handleDeleteProject = async (req, res) => {
   const { id } = req.params;
   try {
-    await deleteBlog(id);  // Delete the blog
-    res.json({success:true,message:"deleted successfully"});
+    await deleteProject(id);
+    res.json({ success: true, message: "deleted successfully" });
   } catch (err) {
     return sendServerError(res, err);
   }
@@ -154,8 +150,8 @@ export const handleDeleteBlog = async (req, res) => {
 export const handleDeleteUser = async (req, res) => {
   const { id } = req.params;
   try {
-    await deleteUser(id); // Delete the user from the database
-    res.json({success:true,message:"Operation completed successfully"}); // Redirect to admin panel after user deletion
+    await deleteUser(id);
+    res.json({ success: true, message: "Operation completed successfully" });
   } catch (err) {
     return sendServerError(res, err);
   }

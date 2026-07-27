@@ -7,9 +7,9 @@ const columns = [
   {
     title: "Product",
     links: [
-      { label: "Explore", to: "/blogs" },
-      { label: "Write", to: "/create" },
-      { label: "My Blogs", to: "/myblogs" },
+      { label: "Explore Projects", to: "/projects" },
+      { label: "Share a Project", to: "/create" },
+      { label: "My Projects", to: "/myprojects" },
       { label: "Profile", to: "/editprofile" },
     ],
   },
@@ -18,7 +18,7 @@ const columns = [
     links: [
       { label: "About", to: "/" },
       { label: "Careers", to: "/" },
-      { label: "Blog", to: "/blogs" },
+      { label: "Community", to: "/projects" },
       { label: "Contact", to: "/" },
     ],
   },
@@ -39,8 +39,8 @@ export default function Footer() {
         <div>
           <Logo />
           <p className="mt-4 max-w-xs text-sm text-ink-muted">
-            A calm, modern home for your writing. Publish beautiful stories and
-            grow your audience.
+            A developer collaboration hub to showcase projects, exchange code
+            feedback, and find people to build with.
           </p>
           <div className="mt-5 flex gap-2">
             {[Twitter, Github, Send].map((Icon, i) => (
@@ -77,8 +77,8 @@ export default function Footer() {
 
       <div className="border-t border-line-soft">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-5 text-xs text-ink-muted sm:flex-row sm:px-6 lg:px-10">
-          <p>© {new Date().getFullYear()} Inkwell. All rights reserved.</p>
-          <p>Crafted with care · Built for writers</p>
+          <p>© {new Date().getFullYear()} DevCollab. All rights reserved.</p>
+          <p>Crafted with care · Built for developers</p>
         </div>
       </div>
     </footer>

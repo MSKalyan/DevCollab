@@ -31,7 +31,7 @@ export const upload = multer({
     contentType: multerS3.AUTO_CONTENT_TYPE,
     key: (req, file, cb) => {
       const ext = path.extname(file.originalname) || '';
-      cb(null, `blogs/${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
+      cb(null, `projects/${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
     },
   }),
 });
