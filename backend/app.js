@@ -17,6 +17,7 @@ import adminRoutes from './routes/adminRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
 import { fileURLToPath } from 'url';
 import cors from "cors"
+import { connectRedis } from './config/redis.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -69,5 +70,6 @@ export default app;
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const PORT = process.env.PORT || 5000;
+  await connectRedis();
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }

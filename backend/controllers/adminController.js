@@ -1,6 +1,7 @@
 import { getAllUsers, fetchAllProjects, getUserById, getUserProjects, getUserNameById, deleteUser, deleteProject } from '../models/adminModel.js';
 import pool from '../models/db.js';
 import { sendError, sendServerError } from "../utils/response.js";
+import { invalidateProject, invalidateAllProjectsCache } from '../utils/cache.js';
 
 export const adminPanel = async (req, res) => {
   try {
@@ -140,6 +141,7 @@ export const handleDeleteProject = async (req, res) => {
   const { id } = req.params;
   try {
     await deleteProject(id);
+    await invalidateProject(id);
     res.json({ success: true, message: "deleted successfully" });
   } catch (err) {
     return sendServerError(res, err);
@@ -151,6 +153,7 @@ export const handleDeleteUser = async (req, res) => {
   const { id } = req.params;
   try {
     await deleteUser(id);
+    await invalidateAllProjectsCache();
     res.json({ success: true, message: "Operation completed successfully" });
   } catch (err) {
     return sendServerError(res, err);

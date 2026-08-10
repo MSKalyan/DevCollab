@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import api from "../api/api";
-import { ThumbsUp, ThumbsDown, Reply, Send, Star } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Reply, Send, Star, ChevronLeft, ChevronRight } from "lucide-react";
 import Button from "./ui/Button";
 import { useToast } from "./ui/Toast";
 
@@ -133,22 +133,28 @@ export default function ReviewSection({ projectId }) {
   const [newReview, setNewReview] = useState("");
   const [rating, setRating] = useState(5);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [reviewCount, setReviewCount] = useState(0);
   const toast = useToast();
 
   const tree = useMemo(() => buildReviewTree(flatReviews), [flatReviews]);
 
-  const fetchReviews = async () => {
+  const fetchReviews = async (p) => {
     try {
-      const res = await api.get(`/reviews/project/${projectId}`);
+      const res = await api.get(`/reviews/project/${projectId}?page=${p}&limit=10`);
       setFlatReviews(res.data.reviews || []);
+      setTotalPages(res.data.totalPages || 1);
+      setReviewCount(res.data.reviewCount || 0);
     } catch {
       setFlatReviews([]);
+      setTotalPages(1);
     }
   };
 
   // The fetch function is intentionally recreated with the current project id.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { fetchReviews(); }, [projectId]);
+  useEffect(() => { setPage(1); fetchReviews(1); }, [projectId]);
 
   const handleAddReview = async () => {
     if (!newReview.trim()) return;
@@ -157,7 +163,7 @@ export default function ReviewSection({ projectId }) {
       await api.post(`/reviews/project/${projectId}`, { content: newReview.trim(), rating });
       setNewReview("");
       setRating(5);
-      await fetchReviews();
+      await fetchReviews(page);
       toast.success("Review posted successfully.");
     } catch {
       toast.error("Failed to post review.");
@@ -170,7 +176,7 @@ export default function ReviewSection({ projectId }) {
     if (!content?.trim()) return;
     try {
       await api.post(`/reviews/${reviewId}/reply`, { content: content.trim() });
-      await fetchReviews();
+      await fetchReviews(page);
     } catch {
       toast.error("Failed to post reply.");
     }
@@ -179,17 +185,22 @@ export default function ReviewSection({ projectId }) {
   const handleReact = async (reviewId, type) => {
     try {
       await api.post(`/reviews/${reviewId}/react`, { type });
-      await fetchReviews();
+      await fetchReviews(page);
     } catch {
       toast.error("Failed to react.");
     }
+  };
+
+  const goToPage = (p) => {
+    setPage(p);
+    fetchReviews(p);
   };
 
   return (
     <section className="mt-10">
       <h2 className="mb-4 text-xl font-semibold text-ink">
         Reviews & Code Feedback
-        {flatReviews.length > 0 && <span className="ml-2 text-sm font-normal text-ink-muted">{flatReviews.length}</span>}
+        {reviewCount > 0 && <span className="ml-2 text-sm font-normal text-ink-muted">{reviewCount}</span>}
       </h2>
 
       <div className="mb-6 card p-5 space-y-4">
@@ -217,7 +228,23 @@ export default function ReviewSection({ projectId }) {
           No reviews yet. Be the first to provide feedback on this project!
         </p>
       ) : (
-        tree.map((r) => <ReviewItem key={r.id} review={r} depth={0} onReply={handleReply} onReact={handleReact} />)
+        <>
+          {tree.map((r) => <ReviewItem key={r.id} review={r} depth={0} onReply={handleReply} onReact={handleReact} />)}
+
+          {totalPages > 1 && (
+            <div className="mt-8 flex items-center justify-between">
+              <p className="text-sm text-ink-muted">Page {page} of {totalPages}</p>
+              <div className="flex gap-2">
+                <Button variant="secondary" size="sm" disabled={page === 1} onClick={() => goToPage(page - 1)}>
+                  <ChevronLeft className="h-4 w-4" /> Prev
+                </Button>
+                <Button variant="secondary" size="sm" disabled={page === totalPages} onClick={() => goToPage(page + 1)}>
+                  Next <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </section>
   );

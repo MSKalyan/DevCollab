@@ -84,6 +84,7 @@ export const getUserProjects = async (userId) => {
     LEFT JOIN (SELECT project_id, COUNT(*) AS star_count FROM stars GROUP BY project_id) s ON s.project_id = p.id
     LEFT JOIN (SELECT project_id, COUNT(*) AS fork_count FROM forks GROUP BY project_id) f ON f.project_id = p.id
     WHERE p.owner_id = $1
+      AND NOT EXISTS (SELECT 1 FROM forks fk WHERE fk.project_id = p.id)
     ORDER BY p.created_at DESC`,
     [userId]
   );

@@ -88,6 +88,8 @@ export const getAllProjects = async (page, limit, tag, status, search, category,
     paramIndex++;
   }
 
+  conditions.push(`NOT EXISTS (SELECT 1 FROM forks fk WHERE fk.project_id = p.id)`);
+
   if (status) {
     conditions.push(`p.status = $${paramIndex}`);
     values.push(status);

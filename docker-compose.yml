@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   frontend:
     build:
@@ -11,7 +9,7 @@ services:
     depends_on:
       - backend
     environment:
-      - VITE_API_URL=http://backend:5000
+      - PROXY_TARGET=http://backend:5000
     restart: unless-stopped
 
   backend:
@@ -26,9 +24,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+    env_file:
+      - ./backend/.env
     environment:
       NODE_ENV: development
       PORT: 5000
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/appdb
+      CORS_ORIGIN: http://localhost:3000
 
       # PostgreSQL
       DB_HOST: postgres

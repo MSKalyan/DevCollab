@@ -26,7 +26,7 @@ import pkg from 'pg';
 
 const { Pool } = pkg;
 
-const isLocal = process.env.DATABASE_URL?.includes('localhost') || process.env.DATABASE_URL?.includes('@db:');
+const isLocal = process.env.DATABASE_URL?.includes('localhost') || process.env.DATABASE_URL?.includes('@db:') || process.env.DATABASE_URL?.includes('@postgres:');
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   family: 4,

@@ -5,6 +5,10 @@ import {
   requestCollab, getCollabRequests, updateCollabStatus, getAllTags
 } from '../models/projectModel.js';
 import { sendError, sendServerError } from '../utils/response.js';
+import {
+  getCache, setCache, listCacheKey, projectCacheKey, tagsCacheKey,
+  invalidateProject, invalidateProjectLists, invalidateTagsCache,
+} from '../utils/cache.js';
 
 function isAdmin(req) {
   return req.user && req.user.role === 'admin';
@@ -18,6 +22,7 @@ export const postCreateProject = async (req, res) => {
   try {
     const tagsArray = tags ? (typeof tags === 'string' ? tags.split(',').map(t => t.trim()).filter(Boolean) : tags) : [];
     const project = await createProject(title, description, ownerId, category, image, github_url, live_url, status, tagsArray);
+    await Promise.all([invalidateProjectLists(), invalidateTagsCache()]);
     res.status(201).json({ success: true, message: 'Project created successfully', data: project });
   } catch (err) {
     return sendServerError(res, err);
@@ -30,16 +35,25 @@ export const getProjectList = async (req, res) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit) || 12, 1), 50);
     const { tag, status, search, category, author } = req.query;
 
+    const cacheKey = listCacheKey({ page, limit, tag, status, search, category, author });
+    const cached = await getCache(cacheKey);
+    if (cached) {
+      return res.status(200).json(cached);
+    }
+
     const { projects, total } = await getAllProjects(page, limit, tag, status, search, category, author);
 
-    return res.status(200).json({
+    const payload = {
       success: true,
       page,
       limit,
       total,
       totalPages: Math.ceil(total / limit),
       projects,
-    });
+    };
+
+    await setCache(cacheKey, payload);
+    return res.status(200).json(payload);
   } catch (error) {
     console.error('getProjectList error:', error);
     return res.status(500).json({ success: false, message: 'Server error' });
@@ -51,12 +65,27 @@ export const viewProject = async (req, res) => {
   const userId = req.user?.id;
 
   try {
-    const project = await getProjectById(id);
-    if (!project) return sendError(res, 404, 'Project not found');
+    const cacheKey = projectCacheKey(id);
+    let cached = await getCache(cacheKey);
 
-    const tags = await getProjectTags(id);
-    const starCount = await getStarCount(id);
-    const forkCount = await getForkCount(id);
+    let project;
+    let tags;
+    let starCount;
+    let forkCount;
+
+    if (cached) {
+      ({ project, tags, starCount, forkCount } = cached);
+    } else {
+      project = await getProjectById(id);
+      if (!project) return sendError(res, 404, 'Project not found');
+
+      tags = await getProjectTags(id);
+      starCount = await getStarCount(id);
+      forkCount = await getForkCount(id);
+
+      await setCache(cacheKey, { project, tags, starCount, forkCount });
+    }
+
     const starred = await isStarredByUser(id, userId);
 
     res.json({
@@ -91,6 +120,7 @@ export const postEditProject = async (req, res) => {
 
     const tagsArray = tags ? (typeof tags === 'string' ? tags.split(',').map(t => t.trim()).filter(Boolean) : tags) : [];
     const updated = await updateProject(id, title, description, category, image, github_url, live_url, status, tagsArray);
+    await Promise.all([invalidateProject(id), invalidateTagsCache()]);
     res.json({ success: true, data: updated });
   } catch (err) {
     return sendServerError(res, err);
@@ -108,6 +138,7 @@ export const handleDeleteProject = async (req, res) => {
     }
 
     await deleteProjectFromModel(id);
+    await invalidateProject(id);
     res.json({ success: true, message: 'Project deleted' });
   } catch (err) {
     return sendServerError(res, err);
@@ -124,6 +155,7 @@ export const handleStar = async (req, res) => {
 
     const result = await toggleStar(projectId, userId);
     const starCount = await getStarCount(projectId);
+    await invalidateProject(projectId);
     res.json({ success: true, starred: result.starred, starCount });
   } catch (err) {
     return sendServerError(res, err);
@@ -141,6 +173,7 @@ export const handleFork = async (req, res) => {
     const forked = await forkProject(projectId, userId);
     if (!forked) return sendError(res, 500, 'Failed to fork project');
 
+    await invalidateProject(projectId);
     res.json({ success: true, message: 'Project forked successfully', data: forked });
   } catch (err) {
     return sendServerError(res, err);
@@ -207,7 +240,11 @@ export const handleUpdateCollabStatus = async (req, res) => {
 
 export const handleGetTags = async (req, res) => {
   try {
+    const cached = await getCache(tagsCacheKey);
+    if (cached) return res.json({ success: true, data: cached });
+
     const tags = await getAllTags();
+    await setCache(tagsCacheKey, tags, 300);
     res.json({ success: true, data: tags });
   } catch (err) {
     return sendServerError(res, err);
