@@ -9,22 +9,41 @@ export const getUserProfile = async (userId) => {
   return result.rows[0];
 };
 
-export const updateUserProfile = async (userId, updates) => {
-  const { name, bio, avatar, github_username, location, website, password } = updates;
+export const getUserByEmail = async (email) => {
+  const result = await pool.query(
+    'SELECT * FROM users WHERE email = $1',
+    [email]
+  );
+  return result.rows[0] || null;
+};
 
-  if (password) {
+export const getUserById = async (userId) => {
+  const result = await pool.query(
+    'SELECT * FROM users WHERE id = $1',
+    [userId]
+  );
+  return result.rows[0] || null;
+};
+
+export const createUser = async (name, email, password) => {
+  const result = await pool.query(
+    'INSERT INTO users (name, email, password, created_at, role) VALUES ($1, $2, $3, NOW(), $4) RETURNING *',
+    [name, email, password, 'user']
+  );
+  return result.rows[0];
+};
+
+export const updateUserNameAndPassword = async (userId, name, hashedPassword) => {
+  if (hashedPassword) {
     const result = await pool.query(
-      `UPDATE users SET name=$1, bio=$2, avatar=$3, github_username=$4, location=$5, website=$6, password=$7
-       WHERE id=$8 RETURNING id, name, email, bio, avatar, github_username, location, website, role`,
-      [name, bio, avatar, github_username, location, website, password, userId]
+      'UPDATE users SET name = $1, password = $2 WHERE id = $3 RETURNING *',
+      [name, hashedPassword, userId]
     );
     return result.rows[0];
   }
-
   const result = await pool.query(
-    `UPDATE users SET name=$1, bio=$2, avatar=$3, github_username=$4, location=$5, website=$6
-     WHERE id=$7 RETURNING id, name, email, bio, avatar, github_username, location, website, role`,
-    [name, bio, avatar, github_username, location, website, userId]
+    'UPDATE users SET name = $1 WHERE id = $2 RETURNING *',
+    [name, userId]
   );
   return result.rows[0];
 };
@@ -91,12 +110,15 @@ export const getUserProjects = async (userId) => {
   return result.rows;
 };
 
-export const createContactRequest = async (recipientId, requesterId, message) => {
+export const createContactRequest = async (recipientId, requesterId, message = null) => {
   const result = await pool.query(
     `INSERT INTO contact_requests (recipient_id, requester_id, message)
      VALUES ($1, $2, $3)
      ON CONFLICT (recipient_id, requester_id)
-     DO UPDATE SET message = EXCLUDED.message, status = 'pending', created_at = NOW()
+     DO UPDATE SET
+       message = EXCLUDED.message,
+       status = CASE WHEN contact_requests.status = 'accepted' THEN 'accepted' ELSE 'pending' END,
+       created_at = NOW()
      RETURNING *`,
     [recipientId, requesterId, message]
   );

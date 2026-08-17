@@ -7,10 +7,10 @@ const ToastContext = createContext(null);
 const ICONS = { success: CheckCircle2, error: AlertCircle, warning: AlertTriangle, info: Info };
 
 const STYLES = {
-  success: "border-success/40 bg-[#0e1a16] text-success",
-  error: "border-danger/40 bg-[#1c1010] text-danger",
+  success: "border-merge/40 bg-[#0d1712] text-merge",
+  error: "border-danger/40 bg-[#1c1013] text-danger",
   warning: "border-warning/40 bg-[#1c1708] text-warning",
-  info: "border-brand/40 bg-[#15122b] text-brand-soft",
+  info: "border-rebase/40 bg-[#15122b] text-rebase",
 };
 
 let idCounter = 0;
@@ -49,7 +49,7 @@ export function ToastProvider({ children }) {
                 key={t.id}
                 role="status"
                 className={[
-                  "pointer-events-auto flex items-start gap-3 rounded-xl border px-4 py-3 shadow-pop animate-toast-in",
+                  "pointer-events-auto flex items-start gap-3 rounded-lg border px-4 py-3 shadow-pop animate-toast-in",
                   STYLES[t.type],
                 ].join(" ")}
               >

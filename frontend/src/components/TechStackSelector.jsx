@@ -24,17 +24,17 @@ export default function TechStackSelector({ selectedTags = [], onChange }) {
   return (
     <div className="w-full">
       <label className="field-label">Tech Stack Tags</label>
-      <div className="flex flex-wrap gap-2 mb-2">
+      <div className="mb-2 flex flex-wrap gap-2">
         {selectedTags.map((tag) => (
           <span
             key={tag}
-            className="inline-flex items-center gap-1 rounded-xl bg-brand/10 px-3 py-1 text-xs font-semibold text-brand-soft border border-brand/20 capitalize"
+            className="inline-flex items-center gap-1 rounded-md bg-merge/10 px-3 py-1 font-mono text-xs font-medium text-merge border border-merge/20 capitalize"
           >
             {tag}
             <button
               type="button"
               onClick={() => removeTag(tag)}
-              className="rounded-full p-0.5 hover:bg-brand/20 hover:text-white transition"
+              className="rounded-full p-0.5 hover:bg-merge/20 hover:text-white transition"
               aria-label={`Remove ${tag} tag`}
             >
               <X className="h-3 w-3" />

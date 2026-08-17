@@ -59,18 +59,22 @@ export const reviewCacheKey = (projectId, page, limit) => `reviews:project:${pro
 
 export const tagsCacheKey = 'tags:all';
 
-export const invalidateProjectLists = () => delCacheByPattern('projects:list:*');
+const invalidateProjectLists = () => delCacheByPattern('projects:list:*');
 
-export const invalidateProject = async (projectId) => {
+// A project write (create/edit/delete/star/fork) touches the project detail,
+// every list snapshot, and the tag cloud; expose one interface so controllers
+// never need to know the key shapes.
+export const touchProject = async (projectId) => {
   await Promise.all([
-    delCache(projectCacheKey(projectId)),
+    projectId ? delCache(projectCacheKey(projectId)) : Promise.resolve(),
     invalidateProjectLists(),
   ]);
 };
 
-export const invalidateProjectReviews = (projectId) => delCacheByPattern(`reviews:project:${projectId}:*`);
+// Any write that changes the tag vocabulary touches the shared tag cloud.
+export const touchTags = () => delCache(tagsCacheKey);
 
-export const invalidateTagsCache = () => delCache(tagsCacheKey);
+export const invalidateProjectReviews = (projectId) => delCacheByPattern(`reviews:project:${projectId}:*`);
 
 export const invalidateAllProjectsCache = async () => {
   await Promise.all([

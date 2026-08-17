@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/api";
 import ProjectCard from "../components/ProjectCard";
-import PageHeader from "../components/ui/PageHeader";
+import PageShell from "../components/ui/PageShell";
 import Button from "../components/ui/Button";
 import EmptyState from "../components/ui/EmptyState";
+import SectionHeader from "../components/ui/SectionHeader";
 import { FullPageLoader } from "../components/ui/Spinner";
 import { ConfirmDialog } from "../components/ui/Modal";
 import { useToast } from "../components/ui/Toast";
@@ -46,13 +47,55 @@ export default function MyProjects() {
   };
 
   if (loading) return <FullPageLoader label="Loading your projects…" />;
-  return <div className="mx-auto max-w-5xl">
-    <PageHeader title="My Projects" subtitle="Manage what you have shared with the DevCollab community."
-      actions={<Button onClick={() => navigate("/create")}><PlusSquare className="h-4 w-4" /> Share Project</Button>} />
-    {projects.length === 0 ? <EmptyState icon={FolderGit2} title="No projects yet" description="Share a project to get feedback and find collaborators."
-      action={<Button onClick={() => navigate("/create")}><PlusSquare className="h-4 w-4" /> Share Project</Button>} /> :
-      <div className="space-y-4">{projects.map((project) => <ProjectCard key={project.id} project={project} showActions onEdit={(item) => navigate(`/projects/${item.id}/edit`)} onDelete={setPendingDelete} />)}</div>}
-    <ConfirmDialog open={!!pendingDelete} onClose={() => setPendingDelete(null)} onConfirm={deleteProject} loading={deleting}
-      title="Delete this project?" message={pendingDelete ? `“${pendingDelete.title}” will be permanently removed.` : ""} confirmLabel="Delete" />
-  </div>;
+
+  return (
+    <PageShell
+      eyebrow="workspace"
+      title="My Projects"
+      subtitle="Manage what you have shared with the DevCollab community."
+      actions={
+        <Button onClick={() => navigate("/create")}>
+          <PlusSquare className="h-4 w-4" /> Share Project
+        </Button>
+      }
+    >
+      {projects.length === 0 ? (
+        <EmptyState
+          icon={FolderGit2}
+          title="No projects yet"
+          description="Share a project to get feedback and find collaborators."
+          action={
+            <Button onClick={() => navigate("/create")}>
+              <PlusSquare className="h-4 w-4" /> Share Project
+            </Button>
+          }
+        />
+      ) : (
+        <>
+          <SectionHeader count={projects.length}>Shared projects</SectionHeader>
+          <div className="space-y-4">
+            {projects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                showActions
+                onEdit={(item) => navigate(`/projects/${item.id}/edit`)}
+                onDelete={setPendingDelete}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={deleteProject}
+        loading={deleting}
+        title="Delete this project?"
+        message={pendingDelete ? `“${pendingDelete.title}” will be permanently removed.` : ""}
+        confirmLabel="Delete"
+      />
+    </PageShell>
+  );
 }

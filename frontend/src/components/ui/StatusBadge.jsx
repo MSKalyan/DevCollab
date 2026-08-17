@@ -6,7 +6,7 @@ export default function StatusBadge({ status }) {
 
   if (status === "looking_for_collab") {
     classes = "badge badge-brand";
-    text = "Looking For Collaboration";
+    text = "Open to collab";
   } else if (status === "archived") {
     classes = "badge bg-surface-3 text-ink-muted border border-line";
     text = "Archived";

@@ -59,5 +59,3 @@ export function clearAuthCookies(res) {
   res.clearCookie("access_token", baseCookie);
   res.clearCookie("refresh_token", baseCookie);
 }
-
-export { ACCESS_TOKEN_EXPIRY, REFRESH_TOKEN_EXPIRY_DAYS };

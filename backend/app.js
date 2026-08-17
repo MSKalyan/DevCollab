@@ -12,12 +12,18 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import authRoutes from './routes/authRoutes.js';
+import githubAuthRoutes from './routes/githubAuthRoutes.js';
+import githubRoutes from './routes/githubRoutes.js';
+import recommendationRoutes from './routes/recommendationRoutes.js';
 import projectRoutes from './routes/projectRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
+import chatRoutes from './routes/chatRoutes.js';
 import { fileURLToPath } from 'url';
 import cors from "cors"
 import { connectRedis } from './config/redis.js';
+import { initDatabase } from './db/init.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -58,9 +64,14 @@ app.get("/api/health", (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', githubAuthRoutes);
+app.use('/api/github', githubRoutes);
+app.use('/api', recommendationRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api', notificationRoutes);
+app.use('/api', chatRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Page Not Found' });
@@ -70,6 +81,7 @@ export default app;
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const PORT = process.env.PORT || 5000;
+  await initDatabase();
   await connectRedis();
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }

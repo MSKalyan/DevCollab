@@ -3,6 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../api/api";
 import ReviewSection from "../components/ReviewSection";
 import Button from "../components/ui/Button";
+import PageShell from "../components/ui/PageShell";
+import Avatar from "../components/ui/Avatar";
+import StatStrip from "../components/ui/StatStrip";
 import { Spinner } from "../components/ui/Spinner";
 import { useToast } from "../components/ui/Toast";
 import useAuth from "../hooks/useAuth";
@@ -45,12 +48,13 @@ export default function ProjectDetails() {
     setStarLoading(true);
     try {
       const res = await api.post(`/projects/${id}/star`);
+      const starResult = res.data.data || {};
       setData((prev) => ({
         ...prev,
-        starred: res.data.starred,
-        starCount: res.data.starCount,
+        starred: starResult.starred,
+        starCount: starResult.starCount,
       }));
-      toast.success(res.data.starred ? "Added to starred projects" : "Removed star");
+      toast.success(starResult.starred ? "Added to starred projects" : "Removed star");
     } catch {
       toast.error("Failed to star project.");
     } finally {
@@ -65,7 +69,7 @@ export default function ProjectDetails() {
       try {
         const res = await api.post(`/projects/${id}/fork`);
         toast.success("Project forked successfully!");
-        navigate(`/projects/${res.data.data.id}`);
+        navigate(`/projects/${res.data.data?.id}`);
       } catch (err) {
         toast.error("Failed to fork project.");
       } finally {
@@ -93,7 +97,7 @@ export default function ProjectDetails() {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <Spinner size="lg" />
+        <Spinner />
       </div>
     );
   }
@@ -108,7 +112,7 @@ export default function ProjectDetails() {
     : null;
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <PageShell className="mx-auto max-w-4xl">
       <Button variant="ghost" size="sm" className="mb-6 -ml-2" onClick={() => navigate(-1)}>
         <ArrowLeft className="h-4 w-4" /> Back to projects
       </Button>
@@ -116,15 +120,13 @@ export default function ProjectDetails() {
       <article className="animate-fade-in space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
-              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-brand-deep text-[10px] font-semibold text-white uppercase">
-                {project.owner_name?.charAt(0) || "U"}
-              </span>
-              <span className="font-medium text-ink-soft">{project.owner_name}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <Avatar name={project.owner_name} className="h-6 w-6 text-[0.625rem]" />
+              <span className="text-sm font-medium text-ink-soft">{project.owner_name}</span>
               {project.category && <span className="badge badge-neutral capitalize">{project.category}</span>}
               <StatusBadge status={project.status} />
             </div>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+            <h1 className="display mt-3 text-[length:var(--step-4)]">
               {project.title}
             </h1>
           </div>
@@ -157,10 +159,18 @@ export default function ProjectDetails() {
         </div>
 
         {imageUrl && (
-          <div className="aspect-[21/9] w-full overflow-hidden rounded-2xl bg-surface-2 border border-line">
+          <div className="aspect-[21/9] w-full overflow-hidden rounded-xl bg-surface-2 border border-line">
             <img src={imageUrl} alt={project.title} className="h-full w-full object-cover" />
           </div>
         )}
+
+        <StatStrip
+          stats={[
+            { label: "Stars", value: starCount },
+            { label: "Forks", value: forkCount },
+            { label: "Reviews", value: data.reviewCount ?? "—" },
+          ]}
+        />
 
         {/* Tags Section */}
         {tags && tags.length > 0 && (
@@ -168,7 +178,7 @@ export default function ProjectDetails() {
             {tags.map((tag) => (
               <span
                 key={tag}
-                className="inline-flex items-center rounded-xl bg-brand/10 px-3 py-1 text-xs font-semibold text-brand-soft border border-brand/20 capitalize"
+                className="inline-flex items-center rounded-md bg-merge/10 px-3 py-1 font-mono text-xs font-medium text-merge border border-merge/20 capitalize"
               >
                 {tag}
               </span>
@@ -176,13 +186,13 @@ export default function ProjectDetails() {
           </div>
         )}
 
-        <div className="prose max-w-none border-t border-line/60 pt-6">
+        <div className="border-t border-line/60 pt-6">
           <p className="whitespace-pre-line text-lg leading-relaxed text-ink-soft">
             {project.description}
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-3 border-t border-b border-line py-4">
+        <div className="flex flex-wrap gap-3 border-y border-line py-4">
           {project.github_url && (
             <a href={project.github_url} target="_blank" rel="noopener noreferrer">
               <Button variant="secondary">
@@ -205,7 +215,7 @@ export default function ProjectDetails() {
       {/* Collaboration Modal */}
       {showCollabModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <div className="card w-full max-w-md p-6 space-y-4 animate-fade-in">
+          <div className="surface w-full max-w-md p-6 space-y-4 animate-fade-in">
             <h3 className="text-lg font-semibold text-ink">Request Collaboration</h3>
             <p className="text-sm text-ink-muted">
               Explain why you want to collaborate on <strong>{project.title}</strong> and what skills you bring to the table.
@@ -233,6 +243,6 @@ export default function ProjectDetails() {
 
       {/* Code Feedback / Review Section */}
       <ReviewSection projectId={project.id} />
-    </div>
+    </PageShell>
   );
 }

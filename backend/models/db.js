@@ -23,16 +23,24 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import pkg from 'pg';
+import { isMemDbUrl, getMemPool } from '../tests/helpers/memdb.js';
 
 const { Pool } = pkg;
 
 const isLocal = process.env.DATABASE_URL?.includes('localhost') || process.env.DATABASE_URL?.includes('@db:') || process.env.DATABASE_URL?.includes('@postgres:');
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  family: 4,
-  ssl: isLocal ? false : {
-    rejectUnauthorized: false,
-  },
-});
+
+let pool;
+if (isMemDbUrl(process.env.DATABASE_URL)) {
+  // In-memory PostgreSQL (pg-mem) for tests — see tests/helpers/memdb.js.
+  pool = await getMemPool();
+} else {
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    family: 4,
+    ssl: isLocal ? false : {
+      rejectUnauthorized: false,
+    },
+  });
+}
 
 export default pool;

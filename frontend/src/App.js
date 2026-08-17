@@ -13,6 +13,8 @@ import EditProject from "./pages/EditProject";
 import EditProfile from "./pages/EditProfile";
 import Developers from "./pages/Developers";
 import DeveloperProfile from "./pages/DeveloperProfile";
+import GitHub from "./pages/GitHub";
+import Chats from "./pages/Chats";
 import AdminRoute from "./components/adminRoute";
 import Admin from "./pages/Admin"
 import NotFound from "./pages/NotFound"
@@ -35,6 +37,8 @@ function App() {
               <Route path="/editprofile" element={<EditProfile/>}/>
               <Route path="/developers" element={<Developers/>}/>
               <Route path="/developers/:id" element={<DeveloperProfile/>}/>
+              <Route path="/github" element={<GitHub/>}/>
+              <Route path="/chats" element={<Chats/>}/>
             <Route path="/admin" element={<AdminRoute><Admin/></AdminRoute>}/>
             <Route path="*" element={<NotFound />} />
             </Routes>

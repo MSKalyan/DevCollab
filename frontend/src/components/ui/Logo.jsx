@@ -1,18 +1,21 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Code2 } from "lucide-react";
+import { GitMerge } from "lucide-react";
 
 export default function Logo({ to = "/", compact = false }) {
   return (
     <Link
       to={to}
-      className="inline-flex items-center gap-2.5 rounded-xl text-ink transition hover:opacity-80"
+      className="inline-flex items-center gap-2.5 rounded-lg text-ink transition hover:opacity-80"
+      aria-label="DevCollab home"
     >
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-brand-deep text-white shadow-glow">
-        <Code2 className="h-5 w-5" />
+      <span className="flex h-8 w-8 items-center justify-center rounded-md bg-merge/15 text-merge ring-1 ring-merge/40">
+        <GitMerge className="h-4.5 w-4.5" />
       </span>
       {!compact && (
-        <span className="text-lg font-semibold tracking-tight">DevCollab</span>
+        <span className="font-mono text-base font-semibold tracking-tight">
+          dev<span className="text-merge">collab</span>
+        </span>
       )}
     </Link>
   );

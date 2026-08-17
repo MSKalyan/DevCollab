@@ -4,12 +4,12 @@ export default function EmptyState({ icon: Icon, title, description, action, cla
   return (
     <div
       className={[
-        "flex flex-col items-center justify-center rounded-2xl border border-dashed border-line bg-surface/60 p-10 text-center",
+        "flex flex-col items-center justify-center rounded-xl border border-dashed border-line bg-surface/60 p-10 text-center",
         className,
       ].join(" ")}
     >
       {Icon && (
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 text-brand-soft">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-merge/10 text-merge">
           <Icon className="h-7 w-7" />
         </div>
       )}

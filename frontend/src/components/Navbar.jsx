@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Menu, Search, LogOut, ShieldCheck, Bell } from "lucide-react";
+import { Menu, Search, LogOut, ShieldCheck } from "lucide-react";
 import Logo from "./ui/Logo";
 import Button from "./ui/Button";
+import NotificationsDropdown from "./NotificationsDropdown";
 import useAuth from "../hooks/useAuth";
 
 function Navbar({ toggleSidebar }) {
@@ -23,13 +24,13 @@ function Navbar({ toggleSidebar }) {
 
   return (
     <header className="sticky top-0 z-50 border-b border-line glass">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
-        <div className="flex items-center gap-3">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="flex items-center gap-2">
           {isLoggedIn && (
             <button
               onClick={toggleSidebar}
               aria-label="Toggle sidebar"
-              className="rounded-xl p-2 text-ink-muted transition hover:bg-surface-2 hover:text-ink"
+              className="rounded-lg p-2 text-ink-muted transition hover:bg-surface-2 hover:text-ink lg:hidden"
             >
               <Menu className="h-5 w-5" />
             </button>
@@ -54,13 +55,7 @@ function Navbar({ toggleSidebar }) {
         <div className="flex items-center gap-2 sm:gap-3">
           {isLoggedIn ? (
             <>
-              <button
-                aria-label="Notifications"
-                className="relative hidden rounded-xl p-2 text-ink-muted transition hover:bg-surface-2 hover:text-ink sm:inline-flex"
-              >
-                <Bell className="h-5 w-5" />
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-brand shadow-[0_0_8px_rgba(109,94,252,0.9)]" />
-              </button>
+              <NotificationsDropdown />
 
               {role === "admin" && (
                 <Link to="/admin">
@@ -71,8 +66,8 @@ function Navbar({ toggleSidebar }) {
                 </Link>
               )}
 
-              <div className="hidden items-center gap-2.5 rounded-xl border border-line bg-surface py-1 pl-1 pr-3 sm:flex">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-brand-deep text-sm font-semibold text-white">
+              <div className="hidden items-center gap-2.5 rounded-lg border border-line bg-surface py-1 pl-1 pr-3 sm:flex">
+                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-merge/15 font-mono text-sm font-semibold text-merge">
                   {user?.name?.charAt(0)?.toUpperCase() || "U"}
                 </span>
                 <span className="text-sm font-medium text-ink">{user?.name}</span>

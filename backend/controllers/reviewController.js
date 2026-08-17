@@ -1,7 +1,7 @@
 import { addReview, getReviewsByProject, getMyReactions, getReviewProjectId, replyToReview, reactToReview, getReviewCount } from '../models/reviewModel.js';
 import { getProjectById } from '../models/projectModel.js';
 import { sendError, sendServerError } from '../utils/response.js';
-import { getCache, setCache, reviewCacheKey, invalidateProjectLists, invalidateProjectReviews } from '../utils/cache.js';
+import { getCache, setCache, reviewCacheKey, touchProject, invalidateProjectReviews } from '../utils/cache.js';
 
 export const getReviewsByProjectId = async (req, res) => {
   const { projectId } = req.params;
@@ -38,7 +38,7 @@ export const getReviewsByProjectId = async (req, res) => {
       };
     }
 
-    res.json({ success: true, ...data });
+    res.json({ success: true, data });
   } catch (err) {
     console.error('getReviewsByProject error:', err);
     return sendServerError(res, err);
@@ -59,8 +59,8 @@ export const addReviewToProject = async (req, res) => {
     if (!project) return sendError(res, 404, 'Project not found');
 
     const review = await addReview(projectId, userId, content.trim(), rating || null, null);
-    await Promise.all([invalidateProjectReviews(projectId), invalidateProjectLists()]);
-    res.status(201).json({ success: true, review });
+    await Promise.all([invalidateProjectReviews(projectId), touchProject(null)]);
+    res.status(201).json({ success: true, data: { review } });
   } catch (err) {
     console.error('addReview error:', err);
     return sendServerError(res, err);
@@ -80,8 +80,8 @@ export const replyToReviewComment = async (req, res) => {
     const reply = await replyToReview(reviewId, userId, content.trim());
     if (!reply) return sendError(res, 404, 'Parent review not found');
 
-    await Promise.all([invalidateProjectReviews(reply.project_id), invalidateProjectLists()]);
-    res.status(201).json({ success: true, reply });
+    await Promise.all([invalidateProjectReviews(reply.project_id), touchProject(null)]);
+    res.status(201).json({ success: true, data: { reply } });
   } catch (err) {
     console.error('replyToReview error:', err);
     return sendServerError(res, err);
@@ -101,7 +101,7 @@ export const reactToReviewComment = async (req, res) => {
     const result = await reactToReview(reviewId, userId, type);
     const projectId = await getReviewProjectId(reviewId);
     if (projectId) await invalidateProjectReviews(projectId);
-    res.json({ success: true, ...result });
+    res.json({ success: true, data: result });
   } catch (err) {
     console.error('reactToReview error:', err);
     return sendServerError(res, err);

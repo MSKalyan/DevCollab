@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/api";
-import PageHeader from "../components/ui/PageHeader";
+import PageShell from "../components/ui/PageShell";
 import Button from "../components/ui/Button";
 import { Badge } from "../components/ui/Card";
 import EmptyState from "../components/ui/EmptyState";
+import SectionHeader from "../components/ui/SectionHeader";
 import { FullPageLoader } from "../components/ui/Spinner";
 import { ConfirmDialog } from "../components/ui/Modal";
 import { useToast } from "../components/ui/Toast";
@@ -12,13 +13,13 @@ import { Users, FolderGit2, Trash2, Eye, ShieldCheck, LayoutDashboard } from "lu
 
 function Kpi({ icon: Icon, label, value, tint }) {
   return (
-    <div className="card flex items-center gap-4 p-5">
-      <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${tint}`}>
+    <div className="surface flex items-center gap-4 p-5">
+      <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${tint}`}>
         <Icon className="h-6 w-6" />
       </div>
       <div>
-        <p className="text-2xl font-semibold text-ink">{value}</p>
-        <p className="text-sm text-ink-muted">{label}</p>
+        <p className="font-mono text-2xl font-semibold text-ink">{value}</p>
+        <p className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-ink-muted">{label}</p>
       </div>
     </div>
   );
@@ -26,11 +27,11 @@ function Kpi({ icon: Icon, label, value, tint }) {
 
 function Table({ headers, children }) {
   return (
-    <div className="card overflow-hidden p-0">
+    <div className="surface overflow-hidden p-0">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-line bg-surface-2 text-xs uppercase tracking-wider text-ink-muted">
+            <tr className="border-b border-line bg-surface-2 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-ink-muted">
               {headers.map((h) => (
                 <th key={h} className="whitespace-nowrap px-5 py-3 font-semibold">{h}</th>
               ))}
@@ -92,21 +93,24 @@ export default function Admin() {
   if (loading) return <FullPageLoader label="Loading admin dashboard…" />;
 
   return (
-    <div className="mx-auto max-w-6xl">
-      <PageHeader
-        title="Admin Dashboard"
-        subtitle="Oversee users and published content."
-        actions={<span className="badge badge-brand"><ShieldCheck className="h-3.5 w-3.5" /> Admin</span>}
-      />
-
+    <PageShell
+      eyebrow="control"
+      title="Admin Dashboard"
+      subtitle="Oversee users and published content."
+      actions={
+        <span className="badge badge-brand">
+          <ShieldCheck className="h-3.5 w-3.5" /> Admin
+        </span>
+      }
+    >
       <div className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Kpi icon={Users} label="Total Users" value={users.length} tint="bg-brand/10 text-brand-soft" />
+        <Kpi icon={Users} label="Total Users" value={users.length} tint="bg-merge/10 text-merge" />
         <Kpi icon={FolderGit2} label="Total Projects" value={projects.length} tint="bg-accent/10 text-accent" />
-        <Kpi icon={LayoutDashboard} label="Admins" value={users.filter((u) => u.role === "admin").length} tint="bg-brand/10 text-brand-soft" />
+        <Kpi icon={LayoutDashboard} label="Admins" value={users.filter((u) => u.role === "admin").length} tint="bg-merge/10 text-merge" />
       </div>
 
       <section className="mb-12">
-        <h2 className="mb-4 text-lg font-semibold text-ink">Manage Users</h2>
+        <SectionHeader count={users.length}>Manage users</SectionHeader>
         {users.length === 0 ? (
           <EmptyState icon={Users} title="No users found" />
         ) : (
@@ -128,7 +132,7 @@ export default function Admin() {
       </section>
 
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-ink">Manage Projects</h2>
+        <SectionHeader count={projects.length}>Manage projects</SectionHeader>
         {projects.length === 0 ? (
           <EmptyState icon={FolderGit2} title="No projects found" />
         ) : (
@@ -162,6 +166,6 @@ export default function Admin() {
         message={pending ? `“${pending.item.name || pending.item.title}” will be permanently removed.` : ""}
         confirmLabel="Delete"
       />
-    </div>
+    </PageShell>
   );
 }

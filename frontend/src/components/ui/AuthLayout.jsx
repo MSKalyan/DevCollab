@@ -8,11 +8,12 @@ export default function AuthLayout({ title, subtitle, children, footer }) {
         <div className="mb-5 flex justify-center">
           <Logo />
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
+        <p className="eyebrow mb-2">devcollab</p>
+        <h1 className="display text-[length:var(--step-3)]">{title}</h1>
         {subtitle && <p className="mt-1.5 text-sm text-ink-muted">{subtitle}</p>}
       </div>
 
-      <div className="card p-7 animate-fade-in">{children}</div>
+      <div className="surface p-7 animate-fade-in">{children}</div>
 
       {footer && (
         <p className="mt-6 text-center text-sm text-ink-muted">{footer}</p>

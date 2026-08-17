@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Architecture review — DevCollab</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
+</script>
+<style>
+  .seam { stroke-dasharray: 4 4; }
+  .leak { stroke: #dc2626; }
+  .deep { background: linear-gradient(135deg, #0f172a, #1e293b); }
+</style>
+</head>
+<body class="bg-stone-50 text-slate-900 font-sans">
+<main class="max-w-5xl mx-auto px-6 py-12 space-y-12">
+
+  <header class="border-b border-slate-200 pb-8">
+    <p class="text-xs uppercase tracking-wider text-slate-500">2026-08-12 · Node/Express 5 + React 19 · PostgreSQL · Redis · S3</p>
+    <h1 class="text-3xl font-serif font-bold mt-1">DevCollab — deepening opportunities</h1>
+    <div class="flex flex-wrap gap-3 text-xs mt-4 text-slate-600">
+      <span class="inline-flex items-center gap-1.5"><span class="inline-block w-3 h-3 border border-slate-700 bg-white align-middle"></span> module</span>
+      <span class="inline-flex items-center gap-1.5"><svg width="28" height="8" class="inline"><line x1="0" y1="4" x2="28" y2="4" class="seam" stroke="#64748b" stroke-width="2"/></svg> seam</span>
+      <span class="inline-flex items-center gap-1.5"><svg width="28" height="8" class="inline"><line x1="0" y1="4" x2="28" y2="4" class="leak" stroke-width="2"/></svg> leakage</span>
+      <span class="inline-flex items-center gap-1.5"><span class="inline-block w-3 h-3 deep align-middle"></span> deep module</span>
+    </div>
+  </header>
+
+  <section id="candidates" class="space-y-12">
+
+    <!-- ── Candidate 1 ─────────────────────────────────────────────── -->
+    <article class="bg-white rounded-2xl border border-slate-200 p-8 space-y-6">
+      <div class="flex flex-wrap items-center gap-3">
+        <h2 class="text-xl font-serif font-bold">1 · Close the User-model seam</h2>
+        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">Strong</span>
+        <span class="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+      </div>
+      <p class="font-mono text-sm text-slate-500">backend/controllers/authController.js · backend/models/userModel.js · backend/models/db.js</p>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="rounded-lg border border-slate-200 p-4">
+          <pre class="mermaid">
+            flowchart TD
+              AC[authController] -->|"pool.query SELECT users"| P1[(pg pool)]
+              AC -->|"pool.query INSERT users"| P1
+              AC -->|"pool.query UPDATE users"| P1
+              UM[userModel] -.dead.-> P1[(pg pool)]
+              classDef leak stroke:#dc2626,stroke-width:2px;
+              class AC,P1 leak
+          </pre>
+        </div>
+        <div class="rounded-lg border border-slate-200 p-4">
+          <pre class="mermaid">
+            flowchart TD
+              AC[authController] --> UM[userModel]
+              UM --> P1[(pg pool)]
+              classDef deep stroke:#0f172a,stroke-width:3px;
+              class UM deep
+          </pre>
+        </div>
+      </div>
+
+      <div class="space-y-2 text-sm">
+        <p><strong class="text-slate-700">Problem:</strong> the User module is a partial facade — 4 auth flows run raw SQL against the pool while a real `updateUserProfile` model sits dead.</p>
+        <p><strong class="text-slate-700">Solution:</strong> move login/register/google/updateProfile onto userModel so every SQL statement lives behind the model interface.</p>
+        <ul class="list-disc list-inside text-slate-600">
+          <li>Deletion test passes: deleting the model interface leaves auth controller SQL scattered</li>
+          <li>SQL concentrates behind one interface</li>
+          <li>Auth tests hit a real seam, not the pool</li>
+        </ul>
+      </div>
+    </article>
+
+    <!-- ── Candidate 2 ─────────────────────────────────────────────── -->
+    <article class="bg-white rounded-2xl border border-slate-200 p-8 space-y-6">
+      <div class="flex flex-wrap items-center gap-3">
+        <h2 class="text-xl font-serif font-bold">2 · Deepen the cache module</h2>
+        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">Strong</span>
+        <span class="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+      </div>
+      <p class="font-mono text-sm text-slate-500">backend/utils/cache.js · backend/controllers/projectController.js · backend/controllers/reviewController.js · backend/controllers/adminController.js</p>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="rounded-lg border border-slate-200 p-4">
+          <pre class="mermaid">
+            flowchart TD
+              PC[projectController] -->|"invalidateProject + invalidateProjectLists"| C1[cache]
+              RC[reviewController] -->|"invalidateProjectReviews + invalidateProjectLists"| C1
+              AC[adminController] -->|"invalidateProject / invalidateAllProjectsCache"| C1
+              C1 --> R1[(redis)]
+              classDef leak stroke:#dc2626,stroke-width:2px;
+              class PC,RC,AC leak
+          </pre>
+        </div>
+        <div class="rounded-lg border border-slate-200 p-4">
+          <pre class="mermaid">
+            flowchart TD
+              PC[projectController] -->|touchProject| C1[cache module]
+              RC[reviewController] -->|touchProject| C1
+              AC[adminController] -->|touchProject| C1
+              C1 -->|"3 keys, 2 scans"| R1[(redis)]
+              classDef deep stroke:#0f172a,stroke-width:3px;
+              class C1 deep
+          </pre>
+        </div>
+      </div>
+
+      <div class="space-y-2 text-sm">
+        <p><strong class="text-slate-700">Problem:</strong> invalidation knowledge (key shapes, which keys a write touches) leaks out of the cache module into 3 controllers — a wrong combo silently serves stale data.</p>
+        <p><strong class="text-slate-700">Solution:</strong> one `touchProject(id)` + `touchTags()` interface; controllers never name keys.</p>
+        <ul class="list-disc list-inside text-slate-600">
+          <li>Locality: invalidation rules live in one module</li>
+          <li>New aggregates don't leak key shapes</li>
+          <li>Interface shrinks; implementation absorbs the combos</li>
+          <li>Key factories become unit-testable without Redis</li>
+        </ul>
+      </div>
+    </article>
+
+    <!-- ── Candidate 3 ─────────────────────────────────────────────── -->
+    <article class="bg-white rounded-2xl border border-slate-200 p-8 space-y-6">
+      <div class="flex flex-wrap items-center gap-3">
+        <h2 class="text-xl font-serif font-bold">3 · Collapse the auth tangle</h2>
+        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">Worth exploring</span>
+        <span class="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+      </div>
+      <p class="font-mono text-sm text-slate-500">backend/middleware/authMiddleware.js · backend/utils/tokenUtils.js · backend/utils/response.js · backend/controllers/authController.js · backend/routes/authRoutes.js</p>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="rounded-lg border border-slate-200 p-4">
+          <pre class="mermaid">
+            flowchart TD
+              MW[authMiddleware] -->|"jwt.verify duplicated"| J1[jwt]
+              TU[tokenUtils] -->|"verifyAccessToken dead"| J1
+              AC[authController] -->|"sendError inline"| RES[response]
+              R1[authRoutes] -->|"/me inline"| AC
+              classDef leak stroke:#dc2626,stroke-width:2px;
+              class MW,TU leak
+          </pre>
+        </div>
+        <div class="rounded-lg border border-slate-200 p-4">
+          <pre class="mermaid">
+            flowchart TD
+              MW[authMiddleware] -->|verifyAccessToken| TU[tokenUtils]
+              AC[authController] -->|sendError| RES[response]
+              R1[authRoutes] -->|authController.me| AC
+              classDef deep stroke:#0f172a,stroke-width:3px;
+              class TU deep
+          </pre>
+        </div>
+      </div>
+
+      <div class="space-y-2 text-sm">
+        <p><strong class="text-slate-700">Problem:</strong> auth logic is spread across 5 modules with 2 JWT verify sites and 4 dead exports, and error handling mixes inline `res.json` with `sendError`.</p>
+        <p><strong class="text-slate-700">Solution:</strong> middleware consumes `verifyAccessToken`; delete dead exports and `/me`'s inline handler; route every error through the response module.</p>
+        <ul class="list-disc list-inside text-slate-600">
+          <li>One token interface, one JWT verify site</li>
+          <li>Deletion test: dead exports delete cleanly</li>
+          <li>Every handler returns the same envelope</li>
+        </ul>
+      </div>
+    </article>
+
+    <!-- ── Candidate 4 ─────────────────────────────────────────────── -->
+    <article class="bg-white rounded-2xl border border-slate-200 p-8 space-y-6">
+      <div class="flex flex-wrap items-center gap-3">
+        <h2 class="text-xl font-serif font-bold">4 · Deepen the Admin module</h2>
+        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">Strong</span>
+        <span class="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+      </div>
+      <p class="font-mono text-sm text-slate-500">backend/controllers/adminController.js · backend/models/adminModel.js</p>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="rounded-lg border border-slate-200 p-4">
+          <pre class="mermaid">
+            flowchart TD
+              A1[adminPanel] -->|"pool.query COUNT"| P[(pg pool)]
+              A2[getAllProjects] -->|"pool.query COUNT"| P
+              A3[viewUserProjects] -->|"pool.query COUNT"| P
+              M[adminModel] -->|rows only| A1
+              M -->|rows only| A2
+              M -->|rows only| A3
+              classDef leak stroke:#dc2626,stroke-width:2px;
+              class A1,A2,A3 leak
+          </pre>
+        </div>
+        <div class="rounded-lg border border-slate-200 p-4">
+          <pre class="mermaid">
+            flowchart TD
+              A1[adminPanel] --> M[adminModel]
+              A2[getAllProjects] --> M
+              A3[viewUserProjects] --> M
+              M --> P[(pg pool)]
+              classDef deep stroke:#0f172a,stroke-width:3px;
+              class M deep
+          </pre>
+        </div>
+      </div>
+
+      <div class="space-y-2 text-sm">
+        <p><strong class="text-slate-700">Problem:</strong> 3 controllers re-run the model's filter predicates as raw COUNT queries — same WHERE, 3 copies, none behind the interface.</p>
+        <p><strong class="text-slate-700">Solution:</strong> move totals into adminModel (window count or paired query); controllers stop importing the pool.</p>
+        <ul class="list-disc list-inside text-slate-600">
+          <li>Filter predicates live in one module</li>
+          <li>Controllers drop the pool import</li>
+          <li>Admin pages get one call instead of two</li>
+        </ul>
+      </div>
+    </article>
+
+    <!-- ── Candidate 5 ─────────────────────────────────────────────── -->
+    <article class="bg-white rounded-2xl border border-slate-200 p-8 space-y-6">
+      <div class="flex flex-wrap items-center gap-3">
+        <h2 class="text-xl font-serif font-bold">5 · One response envelope</h2>
+        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">Worth exploring</span>
+        <span class="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+      </div>
+      <p class="font-mono text-sm text-slate-500">backend/controllers/* · frontend/src/api/api.js · frontend/src/pages/*</p>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="rounded-lg border border-slate-200 p-4">
+          <pre class="mermaid">
+            flowchart LR
+              A[getProjectList] -->|"{success, page, total, projects}"| F[frontend]
+              B[viewProject] -->|"{success, data:{project, tags}}"| F
+              C[getMyProjects] -->|"{success, data:[…]}"| F
+              D[getReviewsByProjectId] -->|"{success, page, reviews}"| F
+              classDef leak stroke:#dc2626,stroke-width:2px;
+              class A,B,C,D leak
+          </pre>
+        </div>
+        <div class="rounded-lg border border-slate-200 p-4">
+          <pre class="mermaid">
+            flowchart LR
+              A[all handlers] -->|"{success, data, message}"| F[frontend]
+              classDef deep stroke:#0f172a,stroke-width:3px;
+              class A deep
+          </pre>
+        </div>
+      </div>
+
+      <div class="space-y-2 text-sm">
+        <p><strong class="text-slate-700">Problem:</strong> handlers mix top-level fields (`page`, `total`, `projects`) with a `data` wrapper — the client guesses `res.data.data` vs `res.data.projects`.</p>
+        <p><strong class="text-slate-700">Solution:</strong> envelope everything in `data`; the frontend reads one shape everywhere.</p>
+        <ul class="list-disc list-inside text-slate-600">
+          <li>Client reads one shape everywhere</li>
+          <li>Pagination lives inside `data`</li>
+          <li>Response module owns the envelope</li>
+        </ul>
+      </div>
+    </article>
+
+    <!-- ── Candidate 6 ─────────────────────────────────────────────── -->
+    <article class="bg-white rounded-2xl border border-slate-200 p-8 space-y-6">
+      <div class="flex flex-wrap items-center gap-3">
+        <h2 class="text-xl font-serif font-bold">6 · Deepen the client auth module</h2>
+        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">Strong</span>
+        <span class="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+      </div>
+      <p class="font-mono text-sm text-slate-500">frontend/src/api/api.js · frontend/src/hooks/useAuth.js · frontend/src/components/adminRoute.jsx · frontend/src/pages/ProjectList.jsx · frontend/src/pages/EditProfile.jsx</p>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="rounded-lg border border-slate-200 p-4">
+          <pre class="mermaid">
+            flowchart TD
+              P1[ProjectList] -->|"/auth/me on filter change"| A[api]
+              P2[EditProfile] -->|"/auth/me"| A
+              P3[adminRoute] -->|"/auth/me"| A
+              C1[useAuth] -->|"/auth/me"| A
+              A -.401 refresh excludes /auth/me.-> A
+              classDef leak stroke:#dc2626,stroke-width:2px;
+              class A leak
+          </pre>
+        </div>
+        <div class="rounded-lg border border-slate-200 p-4">
+          <pre class="mermaid">
+            flowchart TD
+              P1[ProjectList] --> C1[useAuth]
+              P2[EditProfile] --> C1
+              P3[adminRoute] --> C1
+              C1 --> A[api]
+              A -->|"single-flight refresh"| B[refresh]
+              classDef deep stroke:#0f172a,stroke-width:3px;
+              class C1 deep
+          </pre>
+        </div>
+      </div>
+
+      <div class="space-y-2 text-sm">
+        <p><strong class="text-slate-700">Problem:</strong> /auth/me is re-fetched in 3 places, and the 401 interceptor excludes /auth/me from its retry queue — an expired access token on reload logs the user out despite a valid refresh cookie.</p>
+        <p><strong class="text-slate-700">Solution:</strong> make useAuth the single owner of user state, fix the interceptor to retry /auth/me (guard against a refresh loop), and have adminRoute/EditProfile/ProjectList consume context.</p>
+        <ul class="list-disc list-inside text-slate-600">
+          <li>Locality: user state lives in one module</li>
+          <li>Reload no longer logs users out</li>
+          <li>3 re-fetches collapse to 1</li>
+        </ul>
+      </div>
+    </article>
+
+  </section>
+
+  <section id="top-recommendation" class="bg-slate-900 text-slate-100 rounded-2xl p-8">
+    <h2 class="text-xl font-serif font-bold">Top recommendation</h2>
+    <p class="mt-2 text-slate-300">
+      <a href="#candidates" class="text-emerald-400 font-semibold">Candidate 1 — Close the User-model seam</a>.
+      It's the smallest move with the biggest locality win: every SQL statement lands behind a model interface, and the auth flows that carry the most recent churn become testable through a real seam.
+    </p>
+  </section>
+
+</main>
+</body>
+</html>

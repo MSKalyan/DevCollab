@@ -3,7 +3,7 @@ import React from "react";
 export function Card({ className = "", children, hover = false, ...props }) {
   return (
     <div
-      className={["card p-6", hover ? "card-hover" : "", className].join(" ")}
+      className={["surface p-6", hover ? "surface-hover" : "", className].join(" ")}
       {...props}
     >
       {children}

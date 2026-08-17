@@ -40,7 +40,7 @@ export default function Modal({
         className={[
           "relative w-full",
           widths[size],
-          "rounded-2xl border border-line bg-surface shadow-pop animate-scale-in",
+          "rounded-xl border border-line bg-surface shadow-pop animate-scale-in",
         ].join(" ")}
       >
         <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">

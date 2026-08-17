@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/api";
-import PageHeader from "../components/ui/PageHeader";
+import PageShell from "../components/ui/PageShell";
 import Button from "../components/ui/Button";
 import { Input, Textarea, Select } from "../components/ui/Input";
 import { useToast } from "../components/ui/Toast";
@@ -41,10 +41,9 @@ export default function CreateProject() {
       formData.append("github_url", githubUrl);
       formData.append("live_url", liveUrl);
       formData.append("status", status);
-      
-      // Append tags individually or stringified
+
       tags.forEach((tag) => formData.append("tags", tag));
-      
+
       if (image) formData.append("image", image);
 
       await api.post("/projects/create", formData, {
@@ -62,20 +61,23 @@ export default function CreateProject() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <PageShell
+      eyebrow="new"
+      title="Share new project"
+      subtitle="Showcase your creation and get feedback from the developer community."
+      className="mx-auto max-w-2xl"
+    >
       <Button variant="ghost" size="sm" className="mb-4 -ml-2" onClick={() => navigate(-1)}>
         <ArrowLeft className="h-4 w-4" /> Back
       </Button>
 
-      <PageHeader title="Share new project" subtitle="Showcase your creation and get feedback from the developer community." />
-
       {error && (
-        <div className="mb-5 rounded-xl border border-danger/40 bg-[#1c1010] px-4 py-3 text-sm font-medium text-danger">
+        <div className="mb-5 rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 font-mono text-sm font-medium text-danger">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="card space-y-5 p-6">
+      <form onSubmit={handleSubmit} className="surface space-y-5 p-6">
         <Input
           label="Project Title"
           value={title}
@@ -143,7 +145,7 @@ export default function CreateProject() {
             type="file"
             accept="image/*"
             onChange={(e) => setImage(e.target.files[0])}
-            className="block w-full text-sm text-ink-muted file:mr-3 file:rounded-xl file:border-0 file:bg-brand/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-brand-soft hover:file:bg-brand/20"
+            className="block w-full text-sm text-ink-muted file:mr-3 file:rounded-lg file:border-0 file:bg-merge/10 file:px-4 file:py-2 file:font-mono file:text-xs file:font-medium file:text-merge hover:file:bg-merge/20"
           />
         </div>
 
@@ -156,6 +158,6 @@ export default function CreateProject() {
           </Button>
         </div>
       </form>
-    </div>
+    </PageShell>
   );
 }

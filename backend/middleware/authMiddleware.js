@@ -1,4 +1,4 @@
-import jwt from "jsonwebtoken";
+import { verifyAccessToken } from "../utils/tokenUtils.js";
 
 // Prefer the httpOnly cookie; fall back to a bearer header for non-browser clients.
 function extractToken(req) {
@@ -18,7 +18,7 @@ function requireAuth(req, res, next) {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = verifyAccessToken(token);
     req.user = decoded;
     next();
   } catch (err) {

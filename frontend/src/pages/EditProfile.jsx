@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from "react";
 import api from "../api/api";
-import PageHeader from "../components/ui/PageHeader";
+import useAuth from "../hooks/useAuth";
+import PageShell from "../components/ui/PageShell";
 import Button from "../components/ui/Button";
+import Avatar from "../components/ui/Avatar";
 import { Input } from "../components/ui/Input";
 import { FullPageLoader } from "../components/ui/Spinner";
 import { useToast } from "../components/ui/Toast";
 import { Save } from "lucide-react";
 
 export default function EditProfile() {
-  const [user, setUser] = useState(null);
+  const { user, loading: authLoading, refresh } = useAuth();
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(true);
@@ -17,11 +19,14 @@ export default function EditProfile() {
   const toast = useToast();
 
   useEffect(() => {
-    api.get("/auth/me")
-      .then((res) => { setUser(res.data); setName(res.data.name); })
-      .catch(() => { setMessage("Please log in to view your profile."); })
-      .finally(() => setLoading(false));
-  }, []);
+    if (user) {
+      setName(user.name);
+      setLoading(false);
+    } else if (!authLoading) {
+      setMessage("Please log in to view your profile.");
+      setLoading(false);
+    }
+  }, [user, authLoading]);
 
   const handleUpdate = async (e) => {
     e.preventDefault();
@@ -31,7 +36,7 @@ export default function EditProfile() {
       await api.put("/auth/update", { name, password });
       setMessage("Profile updated successfully.");
       toast.success("Profile updated successfully.");
-      setUser((prev) => ({ ...prev, name }));
+      await refresh();
       setPassword("");
     } catch {
       setMessage("Error updating profile.");
@@ -45,17 +50,17 @@ export default function EditProfile() {
   if (!user) return <p className="text-center text-sm text-ink-muted">{message}</p>;
 
   return (
-    <div className="mx-auto max-w-xl">
-      <PageHeader title="My Profile" subtitle="Manage your account details." />
-
-      <form onSubmit={handleUpdate} className="card space-y-5 p-6">
+    <PageShell
+      eyebrow="account"
+      title="My Profile"
+      subtitle="Manage your account details."
+    >
+      <form onSubmit={handleUpdate} className="surface max-w-xl space-y-5 p-6">
         <div className="flex items-center gap-4 border-b border-line pb-5">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-brand-deep text-xl font-semibold text-white">
-            {user.name?.charAt(0)?.toUpperCase() || "U"}
-          </span>
+          <Avatar name={user.name} className="h-14 w-14 text-xl" />
           <div>
             <p className="text-sm font-medium text-ink">{user.name}</p>
-            <p className="text-xs text-ink-muted">{user.email}</p>
+            <p className="font-mono text-xs text-ink-muted">{user.email}</p>
           </div>
         </div>
 
@@ -65,9 +70,11 @@ export default function EditProfile() {
         <Input label="New Password" type="password" placeholder="Leave blank to keep current password" value={password} onChange={(e) => setPassword(e.target.value)} />
 
         <div className="flex justify-end pt-2">
-          <Button type="submit" loading={saving}><Save className="h-4 w-4" /> Update Profile</Button>
+          <Button type="submit" loading={saving}>
+            <Save className="h-4 w-4" /> Update Profile
+          </Button>
         </div>
       </form>
-    </div>
+    </PageShell>
   );
 }

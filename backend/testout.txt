@@ -1,0 +1,40 @@
+
+> vibecoding@1.0.0 test
+> node --test
+
+▶ GET /api/health
+  ✔ returns OK status (37.5421ms)
+✔ GET /api/health (39.1808ms)
+▶ POST /api/auth/register validation
+  ✔ rejects missing/invalid fields with 400 (167.0498ms)
+  ✔ rejects short password with 400 (7.5496ms)
+✔ POST /api/auth/register validation (175.1561ms)
+▶ POST /api/auth/login validation
+  ✔ rejects invalid email with 400 (6.5355ms)
+✔ POST /api/auth/login validation (6.8947ms)
+error: password authentication failed for user "postgres"
+    at Z:\home\kalyan\projects\DevCollab\backend\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async createUser (file:///Z:/home/kalyan/projects/DevCollab/backend/models/userModel.js:29:18)
+    at async postRegister (file:///Z:/home/kalyan/projects/DevCollab/backend/controllers/authController.js:117:21) {
+  length: 104,
+  severity: 'FATAL',
+  code: '28P01',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'auth.c',
+  line: '320',
+  routine: 'auth_failed'
+}
+▶ Auth + projects smoke (pg-mem or DATABASE_URL_TEST)
+  ✖ registers, creates a project, lists and deletes it (220.8803ms)
+✖ Auth + projects smoke (pg-mem or DATABASE_URL_TEST) (222.9876ms)

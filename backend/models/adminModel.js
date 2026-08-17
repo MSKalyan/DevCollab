@@ -16,7 +16,20 @@ export const getAllUsers = async (page, limit, search, role) => {
 
   query += ` ORDER BY id LIMIT $2 OFFSET $3`;
   const result = await pool.query(query, values);
-  return result.rows;
+
+  const countValues = [`%${search}%`];
+  let countQuery = `
+    SELECT COUNT(*) FROM users
+    WHERE name != 'admin'
+    AND (name ILIKE $1 OR email ILIKE $1)
+  `;
+  if (role) {
+    countQuery += ` AND role = $2`;
+    countValues.push(role);
+  }
+  const countResult = await pool.query(countQuery, countValues);
+
+  return { users: result.rows, total: parseInt(countResult.rows[0].count) };
 };
 
 export const fetchAllProjects = async (page, limit, search, category) => {
@@ -36,7 +49,19 @@ export const fetchAllProjects = async (page, limit, search, category) => {
 
   query += ` ORDER BY p.created_at DESC LIMIT $2 OFFSET $3`;
   const result = await pool.query(query, values);
-  return result.rows;
+
+  const countValues = [`%${search}%`];
+  let countQuery = `
+    SELECT COUNT(*) FROM projects
+    WHERE (title ILIKE $1 OR description ILIKE $1)
+  `;
+  if (category) {
+    countQuery += ` AND category = $2`;
+    countValues.push(category);
+  }
+  const countResult = await pool.query(countQuery, countValues);
+
+  return { projects: result.rows, total: parseInt(countResult.rows[0].count) };
 };
 
 export const getUserProjects = async (id, page, limit, search, category) => {
@@ -50,7 +75,13 @@ export const getUserProjects = async (id, page, limit, search, category) => {
     LIMIT $4 OFFSET $5
   `;
   const result = await pool.query(query, [id, `%${search}%`, category, limit, offset]);
-  return result.rows;
+
+  const countResult = await pool.query(
+    'SELECT COUNT(*) FROM projects WHERE owner_id = $1 AND (title ILIKE $2 OR description ILIKE $2) AND ($3 = \'\' OR category = $3)',
+    [id, `%${search}%`, category]
+  );
+
+  return { projects: result.rows, total: parseInt(countResult.rows[0].count) };
 };
 
 export const getUserNameById = async (id) => {

@@ -22,7 +22,3 @@ export async function deleteRefreshToken(token) {
 export async function deleteAllUserRefreshTokens(userId) {
   await pool.query("DELETE FROM refresh_tokens WHERE user_id = $1", [userId]);
 }
-
-export async function deleteExpiredRefreshTokens() {
-  await pool.query("DELETE FROM refresh_tokens WHERE expires_at < NOW()");
-}

@@ -44,6 +44,31 @@ services:
       REDIS_PORT: 6379
     restart: unless-stopped
 
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/appdb
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: appdb
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    command: ["node", "jobs/worker.js"]
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     container_name: postgres

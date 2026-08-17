@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import ProjectCard from "../components/ProjectCard";
-import PageHeader from "../components/ui/PageHeader";
+import PageShell from "../components/ui/PageShell";
 import Button from "../components/ui/Button";
 import EmptyState from "../components/ui/EmptyState";
+import SectionHeader from "../components/ui/SectionHeader";
 import { SkeletonCard } from "../components/ui/Spinner";
 import { FolderGit2, ChevronLeft, ChevronRight, Search, SlidersHorizontal } from "lucide-react";
 import api from "../api/api";
+import useAuth from "../hooks/useAuth";
 
 export default function ProjectList() {
   const location = useLocation();
-  const [name, setName] = useState("");
+  const { user } = useAuth();
   const [projects, setProjects] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -47,10 +49,6 @@ export default function ProjectList() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const userRes = await api.get("/auth/me");
-        if (!active) return;
-        setName(userRes.data.name);
-
         let url = `/projects?page=${page}&limit=10`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
         if (tag) url += `&tag=${encodeURIComponent(tag)}`;
@@ -60,8 +58,8 @@ export default function ProjectList() {
 
         const projectRes = await api.get(url);
         if (!active) return;
-        setProjects(projectRes.data.projects || []);
-        setTotalPages(projectRes.data.totalPages || 1);
+        setProjects(projectRes.data.data?.projects || []);
+        setTotalPages(projectRes.data.data?.totalPages || 1);
       } catch {
         if (active) setProjects([]);
       } finally {
@@ -73,29 +71,30 @@ export default function ProjectList() {
   }, [page, search, tag, status, category, author]);
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <PageHeader title={name ? `Welcome, ${name}` : "Discover Projects"} subtitle="Explore innovative developer projects and find products to collaborate on." />
-
-      {/* Filter and Search Controls */}
+    <PageShell
+      eyebrow="explore"
+      title={user?.name ? `Welcome, ${user.name}` : "Discover Projects"}
+      subtitle="Explore innovative developer projects and find products to collaborate on."
+      actions={
+        <Button variant="secondary" onClick={() => setShowFilters(!showFilters)}>
+          <SlidersHorizontal className="h-4 w-4" /> Filters
+        </Button>
+      }
+    >
       <div className="mb-6 space-y-4">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-            <input
-              type="text"
-              placeholder="Search projects, tags, or developers..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="field pl-9"
-            />
-          </div>
-          <Button variant="secondary" onClick={() => setShowFilters(!showFilters)}>
-            <SlidersHorizontal className="h-4 w-4" /> Filters
-          </Button>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+          <input
+            type="text"
+            placeholder="Search projects, tags, or developers..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="field pl-9"
+          />
         </div>
 
         {showFilters && (
-          <div className="card p-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 animate-fade-in">
+          <div className="surface grid gap-4 p-4 animate-fade-in sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="field-label">Filter by Tag</label>
               <select value={tag} onChange={(e) => { setTag(e.target.value); setPage(1); }} className="field">
@@ -143,11 +142,14 @@ export default function ProjectList() {
       ) : (
         <>
           <div className="space-y-4">
+            <SectionHeader count={projects.length}>Project list</SectionHeader>
             {projects.map((project) => <ProjectCard key={project.id} project={project} />)}
           </div>
 
           <div className="mt-8 flex items-center justify-between">
-            <p className="text-sm text-ink-muted">Page {page} of {totalPages}</p>
+            <p className="font-mono text-xs uppercase tracking-widest text-ink-muted">
+              Page {page} of {totalPages}
+            </p>
             <div className="flex gap-2">
               <Button variant="secondary" size="sm" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
                 <ChevronLeft className="h-4 w-4" /> Prev
@@ -159,6 +161,6 @@ export default function ProjectList() {
           </div>
         </>
       )}
-    </div>
+    </PageShell>
   );
 }

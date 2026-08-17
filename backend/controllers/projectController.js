@@ -5,14 +5,11 @@ import {
   requestCollab, getCollabRequests, updateCollabStatus, getAllTags
 } from '../models/projectModel.js';
 import { sendError, sendServerError } from '../utils/response.js';
+import { isAdmin } from "../middleware/adminMiddleware.js";
 import {
   getCache, setCache, listCacheKey, projectCacheKey, tagsCacheKey,
-  invalidateProject, invalidateProjectLists, invalidateTagsCache,
+  touchProject, touchTags,
 } from '../utils/cache.js';
-
-function isAdmin(req) {
-  return req.user && req.user.role === 'admin';
-}
 
 export const postCreateProject = async (req, res) => {
   const { title, description, category, github_url, live_url, status, tags } = req.body;
@@ -22,7 +19,7 @@ export const postCreateProject = async (req, res) => {
   try {
     const tagsArray = tags ? (typeof tags === 'string' ? tags.split(',').map(t => t.trim()).filter(Boolean) : tags) : [];
     const project = await createProject(title, description, ownerId, category, image, github_url, live_url, status, tagsArray);
-    await Promise.all([invalidateProjectLists(), invalidateTagsCache()]);
+    await Promise.all([touchProject(null), touchTags()]);
     res.status(201).json({ success: true, message: 'Project created successfully', data: project });
   } catch (err) {
     return sendServerError(res, err);
@@ -38,13 +35,12 @@ export const getProjectList = async (req, res) => {
     const cacheKey = listCacheKey({ page, limit, tag, status, search, category, author });
     const cached = await getCache(cacheKey);
     if (cached) {
-      return res.status(200).json(cached);
+      return res.status(200).json({ success: true, data: cached });
     }
 
     const { projects, total } = await getAllProjects(page, limit, tag, status, search, category, author);
 
     const payload = {
-      success: true,
       page,
       limit,
       total,
@@ -53,7 +49,7 @@ export const getProjectList = async (req, res) => {
     };
 
     await setCache(cacheKey, payload);
-    return res.status(200).json(payload);
+    return res.status(200).json({ success: true, data: payload });
   } catch (error) {
     console.error('getProjectList error:', error);
     return res.status(500).json({ success: false, message: 'Server error' });
@@ -91,8 +87,7 @@ export const viewProject = async (req, res) => {
     res.json({
       success: true,
       data: { project, tags, starCount, forkCount, starred }
-    });
-  } catch (err) {
+    });  } catch (err) {
     return sendServerError(res, err);
   }
 };
@@ -120,7 +115,7 @@ export const postEditProject = async (req, res) => {
 
     const tagsArray = tags ? (typeof tags === 'string' ? tags.split(',').map(t => t.trim()).filter(Boolean) : tags) : [];
     const updated = await updateProject(id, title, description, category, image, github_url, live_url, status, tagsArray);
-    await Promise.all([invalidateProject(id), invalidateTagsCache()]);
+    await Promise.all([touchProject(id), touchTags()]);
     res.json({ success: true, data: updated });
   } catch (err) {
     return sendServerError(res, err);
@@ -138,7 +133,7 @@ export const handleDeleteProject = async (req, res) => {
     }
 
     await deleteProjectFromModel(id);
-    await invalidateProject(id);
+    await touchProject(id);
     res.json({ success: true, message: 'Project deleted' });
   } catch (err) {
     return sendServerError(res, err);
@@ -155,8 +150,8 @@ export const handleStar = async (req, res) => {
 
     const result = await toggleStar(projectId, userId);
     const starCount = await getStarCount(projectId);
-    await invalidateProject(projectId);
-    res.json({ success: true, starred: result.starred, starCount });
+    await touchProject(projectId);
+    res.json({ success: true, data: { starred: result.starred, starCount } });
   } catch (err) {
     return sendServerError(res, err);
   }
@@ -173,7 +168,7 @@ export const handleFork = async (req, res) => {
     const forked = await forkProject(projectId, userId);
     if (!forked) return sendError(res, 500, 'Failed to fork project');
 
-    await invalidateProject(projectId);
+    await touchProject(projectId);
     res.json({ success: true, message: 'Project forked successfully', data: forked });
   } catch (err) {
     return sendServerError(res, err);
@@ -191,7 +186,7 @@ export const handleRequestCollab = async (req, res) => {
     if (project.owner_id === requesterId) return sendError(res, 400, 'Cannot request collaboration on your own project');
 
     const request = await requestCollab(projectId, requesterId, message);
-    res.status(201).json({ success: true, data: request });
+    res.status(201).json({ success: true, data: { request } });
   } catch (err) {
     return sendServerError(res, err);
   }

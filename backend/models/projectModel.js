@@ -59,7 +59,7 @@ export const getProjectTags = async (projectId) => {
 export const getAllProjects = async (page, limit, tag, status, search, category, author) => {
   const offset = (page - 1) * limit;
   let query = `
-    SELECT DISTINCT p.*, u.name AS owner_name, u.avatar AS owner_avatar,
+    SELECT p.*, u.name AS owner_name, u.avatar AS owner_avatar,
       COALESCE(s.star_count, 0) AS star_count,
       COALESCE(f.fork_count, 0) AS fork_count,
       COALESCE(r.review_count, 0) AS review_count
@@ -68,6 +68,7 @@ export const getAllProjects = async (page, limit, tag, status, search, category,
     LEFT JOIN (SELECT project_id, COUNT(*) AS star_count FROM stars GROUP BY project_id) s ON s.project_id = p.id
     LEFT JOIN (SELECT project_id, COUNT(*) AS fork_count FROM forks GROUP BY project_id) f ON f.project_id = p.id
     LEFT JOIN (SELECT project_id, COUNT(*) AS review_count FROM reviews GROUP BY project_id) r ON r.project_id = p.id
+    LEFT JOIN forks fk ON fk.project_id = p.id
   `;
   const values = [];
   let paramIndex = 1;
@@ -88,7 +89,7 @@ export const getAllProjects = async (page, limit, tag, status, search, category,
     paramIndex++;
   }
 
-  conditions.push(`NOT EXISTS (SELECT 1 FROM forks fk WHERE fk.project_id = p.id)`);
+  conditions.push(`fk.id IS NULL`);
 
   if (status) {
     conditions.push(`p.status = $${paramIndex}`);

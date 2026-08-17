@@ -1,5 +1,5 @@
 import express from "express";
-import { postLogin, postRegister, logout, updateProfile, googleLogin, refresh, listDevelopers, getDeveloperProfile, requestContact } from "../controllers/authController.js";
+import { postLogin, postRegister, logout, updateProfile, googleLogin, refresh, listDevelopers, getDeveloperProfile, requestContact, me } from "../controllers/authController.js";
 import requireAuth from "../middleware/authMiddleware.js";
 import { bodyValidator, validateLogin, validateRegister } from "../middleware/validate.js";
 
@@ -13,14 +13,7 @@ router.post("/refresh", refresh);
 router.get("/developers", requireAuth, listDevelopers);
 router.get("/developers/:id", requireAuth, getDeveloperProfile);
 router.post("/developers/:id/contact", requireAuth, requestContact);
-// 🔴 REQUIRED
-router.get("/me", requireAuth, (req, res) => {
-  res.json({
-    id: req.user.id,
-    name: req.user.name,
-    role: req.user.role,
-  });
-});
+router.get("/me", requireAuth, me);
 router.put("/update", requireAuth, updateProfile);
 
 export default router;

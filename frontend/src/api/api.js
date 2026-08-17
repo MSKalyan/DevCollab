@@ -17,6 +17,19 @@ function flushQueue(error, success) {
   pendingQueue = [];
 }
 
+// Endpoints that must not loop on refresh: the refresh call itself, login
+// (invalid credentials are a real 401), and /auth/me — it is the bootstrap
+// that happens right after a refresh, so retrying it once is safe and keeps
+// a session alive across reloads.
+function isRetryable(request) {
+  if (request._retry) return false;
+  if (!request.url) return false;
+  return (
+    !request.url.endsWith("/auth/refresh") &&
+    !request.url.endsWith("/auth/login")
+  );
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -24,10 +37,7 @@ api.interceptors.response.use(
     if (
       error.response &&
       error.response.status === 401 &&
-      !originalRequest._retry &&
-      !originalRequest.url.endsWith("/auth/refresh") &&
-      !originalRequest.url.endsWith("/auth/me") &&
-      !originalRequest.url.endsWith("/auth/login")
+      isRetryable(originalRequest)
     ) {
       originalRequest._retry = true;
       if (isRefreshing) {

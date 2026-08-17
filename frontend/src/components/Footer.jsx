@@ -48,7 +48,7 @@ export default function Footer() {
                 key={i}
                 href="/"
                 aria-label="Social link"
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-surface text-ink-muted transition hover:border-brand/50 hover:text-brand-soft"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-ink-muted transition hover:border-merge/50 hover:text-merge"
               >
                 <Icon className="h-4 w-4" />
               </a>
@@ -58,7 +58,9 @@ export default function Footer() {
 
         {columns.map((col) => (
           <div key={col.title}>
-            <h4 className="mb-3 text-sm font-semibold text-ink">{col.title}</h4>
+            <h4 className="mb-3 font-mono text-xs font-semibold uppercase tracking-[0.16em] text-ink">
+              {col.title}
+            </h4>
             <ul className="space-y-2.5">
               {col.links.map((l) => (
                 <li key={l.label}>
@@ -78,7 +80,9 @@ export default function Footer() {
       <div className="border-t border-line-soft">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-5 text-xs text-ink-muted sm:flex-row sm:px-6 lg:px-10">
           <p>© {new Date().getFullYear()} DevCollab. All rights reserved.</p>
-          <p>Crafted with care · Built for developers</p>
+          <p className="font-mono text-[0.625rem] uppercase tracking-widest">
+            crafted for builders
+          </p>
         </div>
       </div>
     </footer>

@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import api from "../api/api";
 import { ThumbsUp, ThumbsDown, Reply, Send, Star, ChevronLeft, ChevronRight } from "lucide-react";
 import Button from "./ui/Button";
+import Avatar from "./ui/Avatar";
+import SectionHeader from "./ui/SectionHeader";
 import { useToast } from "./ui/Toast";
 
 function buildReviewTree(flat) {
@@ -48,18 +50,16 @@ function ReviewItem({ review, depth = 0, onReply, onReact }) {
 
   return (
     <div style={{ marginLeft: indent }} className="mt-4 animate-fade-in">
-      <div className="rounded-xl border border-line bg-surface p-4">
+      <div className="rounded-lg border border-line bg-surface p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand/15 text-sm font-semibold text-brand-soft uppercase">
-              {review.reviewer_name?.charAt(0) || "?"}
-            </span>
+            <Avatar name={review.reviewer_name} className="h-8 w-8 text-xs" />
             <div>
               <div className="flex items-center gap-2">
                 <p className="text-sm font-medium text-ink">{review.reviewer_name}</p>
                 {review.rating && <StarRating rating={review.rating} />}
               </div>
-              <p className="text-xs text-ink-muted">
+              <p className="font-mono text-[0.625rem] uppercase tracking-widest text-ink-muted">
                 {review.created_at
                   ? new Date(review.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
                   : ""}
@@ -74,8 +74,8 @@ function ReviewItem({ review, depth = 0, onReply, onReact }) {
           <button
             onClick={() => onReact(review.id, "like")}
             className={[
-              "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition",
-              review.my_reaction === "like" ? "border-brand/50 bg-brand/10 text-brand-soft" : "border-line text-ink-muted hover:bg-surface-2",
+              "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 font-mono text-xs font-medium transition",
+              review.my_reaction === "like" ? "border-merge/50 bg-merge/10 text-merge" : "border-line text-ink-muted hover:bg-surface-2",
             ].join(" ")}
           >
             <ThumbsUp className="h-3.5 w-3.5" /> {review.likes || 0}
@@ -84,7 +84,7 @@ function ReviewItem({ review, depth = 0, onReply, onReact }) {
           <button
             onClick={() => onReact(review.id, "dislike")}
             className={[
-              "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition",
+              "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 font-mono text-xs font-medium transition",
               review.my_reaction === "dislike" ? "border-danger/50 bg-danger/10 text-danger" : "border-line text-ink-muted hover:bg-surface-2",
             ].join(" ")}
           >
@@ -93,7 +93,7 @@ function ReviewItem({ review, depth = 0, onReply, onReact }) {
 
           <button
             onClick={() => setShowReply((s) => !s)}
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-brand-soft transition hover:bg-brand/10"
+            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-xs font-medium text-merge transition hover:bg-merge/10"
           >
             <Reply className="h-3.5 w-3.5" /> Reply
           </button>
@@ -143,9 +143,10 @@ export default function ReviewSection({ projectId }) {
   const fetchReviews = async (p) => {
     try {
       const res = await api.get(`/reviews/project/${projectId}?page=${p}&limit=10`);
-      setFlatReviews(res.data.reviews || []);
-      setTotalPages(res.data.totalPages || 1);
-      setReviewCount(res.data.reviewCount || 0);
+      const payload = res.data.data || {};
+      setFlatReviews(payload.reviews || []);
+      setTotalPages(payload.totalPages || 1);
+      setReviewCount(payload.reviewCount || 0);
     } catch {
       setFlatReviews([]);
       setTotalPages(1);
@@ -198,12 +199,9 @@ export default function ReviewSection({ projectId }) {
 
   return (
     <section className="mt-10">
-      <h2 className="mb-4 text-xl font-semibold text-ink">
-        Reviews & Code Feedback
-        {reviewCount > 0 && <span className="ml-2 text-sm font-normal text-ink-muted">{reviewCount}</span>}
-      </h2>
+      <SectionHeader count={reviewCount || undefined}>Reviews &amp; code feedback</SectionHeader>
 
-      <div className="mb-6 card p-5 space-y-4">
+      <div className="surface mb-6 space-y-4 p-5">
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-ink-soft">Your Rating:</span>
           <StarRating rating={rating} size="lg" interactive={true} onChange={setRating} />
@@ -224,7 +222,7 @@ export default function ReviewSection({ projectId }) {
       </div>
 
       {tree.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-line bg-surface/60 p-6 text-center text-sm text-ink-muted">
+        <p className="rounded-lg border border-dashed border-line bg-surface/60 p-6 text-center text-sm text-ink-muted">
           No reviews yet. Be the first to provide feedback on this project!
         </p>
       ) : (
@@ -233,7 +231,7 @@ export default function ReviewSection({ projectId }) {
 
           {totalPages > 1 && (
             <div className="mt-8 flex items-center justify-between">
-              <p className="text-sm text-ink-muted">Page {page} of {totalPages}</p>
+              <p className="font-mono text-xs uppercase tracking-widest text-ink-muted">Page {page} of {totalPages}</p>
               <div className="flex gap-2">
                 <Button variant="secondary" size="sm" disabled={page === 1} onClick={() => goToPage(page - 1)}>
                   <ChevronLeft className="h-4 w-4" /> Prev
