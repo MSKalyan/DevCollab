@@ -5,6 +5,7 @@ import {
   countEvidenceForAccount,
   countDistinctRepositoriesForAccount,
   deleteGithubAccountForUser,
+  getGithubAccountWithToken,
 } from "../models/githubAccountModel.js";
 import { listSkillsForAccount } from "../models/skillEvidenceModel.js";
 import { countEvidenceByType, listContributedRepositories } from "../models/evidenceModel.js";
@@ -16,7 +17,8 @@ import {
   exchangeAuthorizationCode,
   resolveOAuthIdentity,
 } from "../services/github/githubAuth.js";
-import { encryptGithubToken } from "../utils/githubTokenCrypto.js";
+import { createGithubClient, GithubApiError } from "../services/github/githubClient.js";
+import { encryptGithubToken, decryptGithubToken } from "../utils/githubTokenCrypto.js";
 import { enqueueBackfill } from "../jobs/queue.js";
 import { sendError, sendServerError } from "../utils/response.js";
 import { getCache, setCache, delCache } from "../utils/cache.js";
@@ -189,6 +191,62 @@ export const evidence = async (req, res) => {
       repositories: contributedRepositories,
     });
   } catch (err) {
+    return sendServerError(res, err);
+  }
+};
+
+// GET /api/github/repositories — the user's OWN GitHub repositories, fetched
+// live from GitHub so "My Projects" always reflects what's really on GitHub.
+export const listMyRepositories = async (req, res) => {
+  try {
+    const account = await getGithubAccountWithToken(req.user.id);
+    if (!account) {
+      return res.json({ connected: false, repositories: [] });
+    }
+    const token = decryptGithubToken(account.access_token_encrypted);
+    if (!token) {
+      return sendError(res, 401, "GitHub session token is missing — reconnect GitHub.");
+    }
+
+    const client = createGithubClient(token);
+    const repos = await client.paginate({
+      perPage: 100,
+      maxPages: 5,
+      fn: (octokit, page) =>
+        octokit.rest.repos
+          .listForAuthenticatedUser({
+            affiliation: "owner",
+            sort: "updated",
+            per_page: 100,
+            page,
+          })
+          .then((r) => r.data),
+    });
+
+    const repositories = repos
+      .filter((r) => !r.fork)
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        fullName: r.full_name,
+        description: r.description || null,
+        language: r.language || null,
+        topics: r.topics || [],
+        stars: r.stargazers_count || 0,
+        forks: r.forks_count || 0,
+        htmlUrl: r.html_url,
+        updatedAt: r.updated_at,
+        defaultBranch: r.default_branch,
+      }));
+
+    return res.json({ success: true, connected: true, data: { repositories } });
+  } catch (err) {
+    if (err instanceof GithubApiError) {
+      if (err.status === 401 || err.status === 403) {
+        return sendError(res, 401, "GitHub access expired or revoked — reconnect GitHub.");
+      }
+      return sendError(res, 502, "GitHub is unavailable right now. Please try again shortly.");
+    }
     return sendServerError(res, err);
   }
 };

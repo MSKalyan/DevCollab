@@ -133,3 +133,28 @@ export async function setCuratedRepositoryEnabled(id, enabled) {
     [id, enabled]
   );
 }
+
+// Public discovery list for the Explore page: enabled repos, optionally narrowed
+// by search text and language, ordered by stars (popularity).
+export async function listExploreProjects({ search = null, language = null } = {}) {
+  const conditions = ["enabled = TRUE"];
+  const params = [];
+
+  if (search && String(search).trim()) {
+    params.push(`%${String(search).trim()}%`);
+    conditions.push(`(full_name ILIKE $${params.length} OR description ILIKE $${params.length})`);
+  }
+  if (language && String(language).trim() && String(language).toLowerCase() !== "all") {
+    params.push(String(language).trim());
+    conditions.push(`primary_language = $${params.length}`);
+  }
+
+  const result = await pool.query(
+    `SELECT ${PUBLIC_COLUMNS}
+     FROM curated_repositories
+     WHERE ${conditions.join(" AND ")}
+     ORDER BY stars DESC NULLS LAST, full_name ASC`,
+    params
+  );
+  return result.rows.map(mapRepoRow);
+}

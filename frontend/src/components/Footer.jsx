@@ -7,9 +7,9 @@ const columns = [
   {
     title: "Product",
     links: [
-      { label: "Explore Projects", to: "/projects" },
-      { label: "Share a Project", to: "/create" },
+      { label: "GitHub Evidence", to: "/github" },
       { label: "My Projects", to: "/myprojects" },
+      { label: "Developers", to: "/developers" },
       { label: "Profile", to: "/editprofile" },
     ],
   },
@@ -17,8 +17,8 @@ const columns = [
     title: "Company",
     links: [
       { label: "About", to: "/" },
-      { label: "Careers", to: "/" },
-      { label: "Community", to: "/projects" },
+      { label: "Developers", to: "/developers" },
+      { label: "Community", to: "/chats" },
       { label: "Contact", to: "/" },
     ],
   },
@@ -39,8 +39,8 @@ export default function Footer() {
         <div>
           <Logo />
           <p className="mt-4 max-w-xs text-sm text-ink-muted">
-            A developer collaboration hub to showcase projects, exchange code
-            feedback, and find people to build with.
+            A developer collaboration hub. Connect GitHub to prove your skills with real
+            contributions and find developers to build with.
           </p>
           <div className="mt-5 flex gap-2">
             {[Twitter, Github, Send].map((Icon, i) => (

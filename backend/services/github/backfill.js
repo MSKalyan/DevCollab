@@ -21,6 +21,7 @@ import { setCache, delCache } from "../../utils/cache.js";
 
 const MAX_PAGES = parseInt(process.env.GITHUB_BACKFILL_MAX_PAGES || "10", 10);
 const MAX_PR_FILES = parseInt(process.env.GITHUB_BACKFILL_MAX_PR_FILES || "30", 10);
+const MAX_PR_FILE_PATHS = parseInt(process.env.GITHUB_BACKFILL_MAX_PR_FILE_PATHS || "50", 10);
 const MAX_REPOS_LANGUAGES = parseInt(process.env.GITHUB_BACKFILL_MAX_REPOS_LANGUAGES || "50", 10);
 // Parallelism bounds. The octokit throttling plugin queues and retries on rate
 // limits, so concurrent round-trips are safe; these caps just prevent a burst
@@ -36,6 +37,14 @@ const prSourceUrl = (pr) =>
   `https://github.com/${pr.repository?.full_name}/pull/${pr.number}`;
 
 const prEventId = (pr) => `${pr.repository?.id}:${pr.number}`;
+
+// GitHub omits these counts on some endpoints; a missing count is unknown, not
+// zero, so consumers get null.
+const toIntOrNull = (value) => {
+  if (value === null || value === undefined) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.trunc(n) : null;
+};
 
 // GitHub search results carry the repo under `repository`, and full PR details
 // (incl. merge_commit_sha) must be fetched separately via pulls.get.
@@ -93,6 +102,11 @@ async function recordContributedRepositories({ accountId, client, ownedRepos, me
         description: repo.description || null,
         owner: repo.owner?.login || null,
         name: repo.name || null,
+        stars: toIntOrNull(repo.stargazers_count),
+        forks: toIntOrNull(repo.forks_count),
+        open_issues: toIntOrNull(repo.open_issues_count),
+        pushed_at: repo.pushed_at || null,
+        size: toIntOrNull(repo.size),
       },
       occurredAt: repo.pushed_at || repo.updated_at || null,
       sourceUrl: repo.html_url || null,
@@ -122,6 +136,8 @@ async function recordMergedPullRequests({ accountId, client, login }) {
     if (repo.full_name) touchedRepos.set(repo.full_name, repo);
     const skills = [];
     let mergeCommitSha = null;
+    let prDetail = null;
+    let filePaths = null;
     if (filesBudget > 0) {
       const [files, detail] = await Promise.allSettled([
         listPullRequestFiles(client, repo.owner?.login, repo.name, pr.number, { perPage: 100 }),
@@ -129,16 +145,26 @@ async function recordMergedPullRequests({ accountId, client, login }) {
       ]);
       if (files.status === "fulfilled") {
         skills.push(...extractSkillsFromPullRequest(pr, files.value));
+        filePaths = files.value
+          .map((file) => file?.filename)
+          .filter(Boolean)
+          .slice(0, MAX_PR_FILE_PATHS);
       } else {
         skills.push(...extractSkillsFromPullRequest(pr, []));
       }
       if (detail.status === "fulfilled") {
-        mergeCommitSha = detail.value.merge_commit_sha || null;
+        prDetail = detail.value || null;
+        mergeCommitSha = prDetail?.merge_commit_sha || null;
       }
       filesBudget -= 1;
     } else {
       skills.push(...extractSkillsFromPullRequest(pr, []));
     }
+
+    // search/issues omits the size/comment counters; the PR detail (fetched
+    // above for merge_commit_sha) carries them. Prefer detail, fall back to the
+    // search item so an exhausted files budget still yields what it can.
+    const detailField = (key) => prDetail?.[key] ?? pr[key];
 
     events.push({
       githubAccountId: accountId,
@@ -154,6 +180,15 @@ async function recordMergedPullRequests({ accountId, client, login }) {
         body: pr.body || null,
         labels: (pr.labels || []).map((l) => l.name),
         merged_at: pr.pull_request?.merged_at || pr.closed_at || null,
+        additions: toIntOrNull(detailField("additions")),
+        deletions: toIntOrNull(detailField("deletions")),
+        changed_files: toIntOrNull(detailField("changed_files")),
+        commits_count: toIntOrNull(detailField("commits")),
+        review_comments: toIntOrNull(detailField("review_comments")),
+        comments: toIntOrNull(detailField("comments")),
+        created_at: detailField("created_at") || null,
+        is_draft: detailField("draft") === true,
+        ...(filePaths?.length ? { file_paths: filePaths } : {}),
       },
       occurredAt: pr.pull_request?.merged_at || pr.closed_at || pr.updated_at,
       sourceUrl: prSourceUrl(pr),

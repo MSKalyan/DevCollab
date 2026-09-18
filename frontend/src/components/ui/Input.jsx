@@ -1,7 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
-export function Input({ label, error, hint, id, className = "", icon: Icon, ...props }) {
+export function Input({ label, error, hint, id, className = "", icon: Icon, type, ...props }) {
   const inputId = id || props.name;
+  const isPassword = type === "password";
+  const [visible, setVisible] = useState(false);
+
   return (
     <div className="w-full">
       {label && (
@@ -15,15 +19,28 @@ export function Input({ label, error, hint, id, className = "", icon: Icon, ...p
         )}
         <input
           id={inputId}
+          type={isPassword && visible ? "text" : type}
           className={[
             "field",
             Icon ? "pl-9" : "",
+            isPassword ? "pr-9" : "",
             error ? "field-error" : "",
             className,
           ].join(" ")}
           aria-invalid={!!error}
           {...props}
         />
+        {isPassword && (
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => setVisible((v) => !v)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-ink-muted hover:text-ink"
+            aria-label={visible ? "Hide password" : "Show password"}
+          >
+            {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        )}
       </div>
       {error ? (
         <p className="field-error-msg">{error}</p>

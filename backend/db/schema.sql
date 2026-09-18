@@ -24,72 +24,9 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS github_username VARCHAR(255);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS location VARCHAR(255);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS website VARCHAR(512);
 
--- Projects ----------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS projects (
-  id          SERIAL PRIMARY KEY,
-  owner_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  title       VARCHAR(255) NOT NULL,
-  description TEXT NOT NULL,
-  github_url  VARCHAR(512),
-  live_url    VARCHAR(512),
-  image       VARCHAR(512),
-  category    VARCHAR(100),
-  status      VARCHAR(50) NOT NULL DEFAULT 'active',
-  created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
-  updated_at  TIMESTAMP
-);
-
--- Reviews -----------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS reviews (
-  id                SERIAL PRIMARY KEY,
-  project_id        INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  user_id           INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  parent_review_id  INTEGER REFERENCES reviews(id) ON DELETE CASCADE,
-  content           TEXT NOT NULL,
-  rating            INTEGER CHECK (rating >= 1 AND rating <= 5),
-  created_at        TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
--- Tech tags -------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS tech_tags (
-  id    SERIAL PRIMARY KEY,
-  name  VARCHAR(100) NOT NULL UNIQUE
-);
-
--- Project tags (many-to-many) -------------------------------------------
-CREATE TABLE IF NOT EXISTS project_tags (
-  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  tag_id     INTEGER NOT NULL REFERENCES tech_tags(id) ON DELETE CASCADE,
-  PRIMARY KEY (project_id, tag_id)
-);
-
--- Stars (replaces reactions/likes) --------------------------------------
-CREATE TABLE IF NOT EXISTS stars (
-  project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (project_id, user_id)
-);
-
--- Forks -----------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS forks (
-  id              SERIAL PRIMARY KEY,
-  project_id      INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  forked_from_id  INTEGER REFERENCES projects(id) ON DELETE SET NULL,
-  created_at      TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
--- Collaboration requests ------------------------------------------------
-CREATE TABLE IF NOT EXISTS collab_requests (
-  id            SERIAL PRIMARY KEY,
-  project_id    INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  requester_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  message       TEXT,
-  status        VARCHAR(20) NOT NULL DEFAULT 'pending',
-  created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
-  UNIQUE(project_id, requester_id)
-);
+-- Projects, reviews, tags, stars, forks, and collaboration requests were
+-- removed: GitHub is the source of truth for projects. Developers' repositories
+-- come from their connected GitHub account (see github_accounts / evidence_events).
 
 -- Private developer contact requests -------------------------------------
 CREATE TABLE IF NOT EXISTS contact_requests (
@@ -131,12 +68,7 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
 
 -- Review reactions (like / dislike) -------------------------------------
-CREATE TABLE IF NOT EXISTS review_reactions (
-  review_id INTEGER NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
-  user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  type      VARCHAR(20) NOT NULL CHECK (type IN ('like', 'dislike')),
-  PRIMARY KEY (review_id, user_id)
-);
+-- Removed with the projects/reviews feature (GitHub is the source of truth).
 
 -- Refresh tokens (server-side revocation) ------------------------------
 CREATE TABLE IF NOT EXISTS refresh_tokens (
@@ -148,23 +80,18 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 );
 
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
-CREATE INDEX IF NOT EXISTS idx_projects_owner ON projects(owner_id);
-CREATE INDEX IF NOT EXISTS idx_reviews_project ON reviews(project_id);
-CREATE INDEX IF NOT EXISTS idx_stars_project ON stars(project_id);
-CREATE INDEX IF NOT EXISTS idx_forks_project ON forks(project_id);
-CREATE INDEX IF NOT EXISTS idx_collab_requests_project ON collab_requests(project_id);
 CREATE INDEX IF NOT EXISTS idx_contact_requests_recipient ON contact_requests(recipient_id);
+-- Password reset tokens (single-use, stored hashed) -------------------
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id         SERIAL PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash VARCHAR(64) NOT NULL UNIQUE,
+  expires_at TIMESTAMP   NOT NULL,
+  used_at    TIMESTAMP,
+  created_at TIMESTAMP   NOT NULL DEFAULT NOW()
+);
 
--- Seed some common tech tags --------------------------------------------
-INSERT INTO tech_tags (name) VALUES
-  ('JavaScript'), ('TypeScript'), ('React'), ('Node.js'), ('Python'),
-  ('Django'), ('Flask'), ('FastAPI'), ('PostgreSQL'), ('MongoDB'),
-  ('Express'), ('Next.js'), ('Vue.js'), ('Angular'), ('Docker'),
-  ('Kubernetes'), ('AWS'), ('GCP'), ('Firebase'), ('TailwindCSS'),
-  ('GraphQL'), ('REST API'), ('Redis'), ('Go'), ('Rust'),
-  ('Java'), ('Spring Boot'), ('C++'), ('Swift'), ('Flutter'),
-  ('React Native'), ('MongoDB'), ('MySQL'), ('Prisma'), ('Supabase')
-ON CONFLICT (name) DO NOTHING;
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id);
 
 -- GitHub accounts (evidence graph) --------------------------------------
 CREATE TABLE IF NOT EXISTS github_accounts (
@@ -227,6 +154,23 @@ CREATE TABLE IF NOT EXISTS skill_evidence (
 );
 
 CREATE INDEX IF NOT EXISTS idx_skill_evidence_account ON skill_evidence(github_account_id);
+
+-- Cached contribution-agent analysis ----------------------------------
+-- The capability/working-style analysis is expensive to recompute and only
+-- changes when the underlying evidence does, so it is persisted here keyed by
+-- the evidence fingerprint it was derived from.
+CREATE TABLE IF NOT EXISTS contribution_profiles (
+  id                 SERIAL PRIMARY KEY,
+  github_account_id  INTEGER NOT NULL UNIQUE REFERENCES github_accounts(id) ON DELETE CASCADE,
+  evidence_version   VARCHAR(64) NOT NULL,
+  capability         JSONB NOT NULL DEFAULT '{}'::jsonb,
+  working_style      JSONB NOT NULL DEFAULT '{}'::jsonb,
+  experience         JSONB NOT NULL DEFAULT '{}'::jsonb,
+  narrative          TEXT,
+  generated_by       VARCHAR(20) NOT NULL DEFAULT 'deterministic',
+  created_at         TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at         TIMESTAMP NOT NULL DEFAULT NOW()
+);
 
 -- Curated repositories (Phase 2: issue corpus source) ---------------------
 -- A configurable list of repositories we collect issues from. Disabled repos

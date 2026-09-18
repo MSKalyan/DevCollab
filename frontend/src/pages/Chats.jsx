@@ -21,13 +21,21 @@ export default function Chats() {
   const pollRef = useRef(null);
 
   const loadConversations = useCallback(async () => {
-    const res = await api.get("/chats");
-    setConversations(res.data.data?.conversations || []);
+    try {
+      const res = await api.get("/chats");
+      setConversations(res.data.data?.conversations || []);
+    } catch {
+      /* transient errors are fine — nothing to show; retry on next load */
+    }
   }, []);
 
   const loadMessages = useCallback(async (id) => {
-    const res = await api.get(`/chats/${id}/messages`);
-    setMessages(res.data.data?.messages || []);
+    try {
+      const res = await api.get(`/chats/${id}/messages`);
+      setMessages(res.data.data?.messages || []);
+    } catch {
+      /* keep whatever messages are already loaded */
+    }
   }, []);
 
   const openChat = async (conv) => {

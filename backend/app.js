@@ -15,15 +15,15 @@ import authRoutes from './routes/authRoutes.js';
 import githubAuthRoutes from './routes/githubAuthRoutes.js';
 import githubRoutes from './routes/githubRoutes.js';
 import recommendationRoutes from './routes/recommendationRoutes.js';
-import projectRoutes from './routes/projectRoutes.js';
+import exploreRoutes from './routes/exploreRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
-import reviewRoutes from './routes/reviewRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
 import { fileURLToPath } from 'url';
 import cors from "cors"
 import { connectRedis } from './config/redis.js';
 import { initDatabase } from './db/init.js';
+import { llmConfigSummary } from './utils/llm.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,15 +44,20 @@ app.use(
   })
 );
 
+// Overridable so a deployment (or the test suite) can raise the budget without
+// editing code. Password reset shares this limiter: it is unauthenticated and
+// sends mail, so it must not be a free inbox-spam or token-guessing surface.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: Number(process.env.AUTH_RATE_LIMIT_MAX || 20),
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Too many attempts, please try again later." },
 });
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/register", authLimiter);
+app.use("/api/auth/forgot-password", authLimiter);
+app.use("/api/auth/reset-password", authLimiter);
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
@@ -67,9 +72,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/auth', githubAuthRoutes);
 app.use('/api/github', githubRoutes);
 app.use('/api', recommendationRoutes);
-app.use('/api/projects', projectRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/reviews', reviewRoutes);
+app.use('/api/explore', exploreRoutes);
 app.use('/api', notificationRoutes);
 app.use('/api', chatRoutes);
 
@@ -84,4 +88,15 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   await initDatabase();
   await connectRedis();
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  const llm = llmConfigSummary();
+  console.log(
+    llm.enabled
+      ? `Contribution agent: LLM enrichment on (${llm.model} via ${llm.baseUrl})`
+      : "Contribution agent: LLM enrichment off (deterministic analysis only)"
+  );
+  if (process.env.NODE_ENV === "production" && !process.env.SMTP_HOST) {
+    console.warn(
+      "SMTP_HOST is not set: password reset emails cannot be delivered in production."
+    );
+  }
 }

@@ -19,7 +19,7 @@ function Navbar({ toggleSidebar }) {
   const handleSearch = (e) => {
     e.preventDefault();
     const query = search.trim();
-    navigate(query ? `/projects?search=${encodeURIComponent(query)}` : "/projects");
+    navigate(query ? `/developers?search=${encodeURIComponent(query)}` : "/developers");
   };
 
   return (
@@ -43,8 +43,8 @@ function Navbar({ toggleSidebar }) {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
             <input
               type="search"
-              placeholder="Search projects, tags, developers…"
-              aria-label="Search projects, tags, or developers"
+              placeholder="Search developers…"
+              aria-label="Search developers"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="field pl-9"

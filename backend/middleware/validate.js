@@ -28,6 +28,25 @@ export function validateLogin({ email, password }) {
   return errors;
 }
 
+export function validateForgotPassword({ email }) {
+  const errors = [];
+  if (!email || typeof email !== "string" || !EMAIL_RE.test(email.trim())) {
+    errors.push("A valid email is required.");
+  }
+  return errors;
+}
+
+export function validateResetPassword({ token, password }) {
+  const errors = [];
+  if (!token || typeof token !== "string" || token.trim().length === 0) {
+    errors.push("A reset token is required.");
+  }
+  if (!password || typeof password !== "string" || password.length < 8) {
+    errors.push("Password must be at least 8 characters.");
+  }
+  return errors;
+}
+
 export function validateProject({ title, description }) {
   const errors = [];
   if (!title || typeof title !== "string" || title.trim().length < 3) {

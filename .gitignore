@@ -10,3 +10,9 @@ frontend/build/
 Thumbs.db
 
 backup.sql
+
+# Local skill trees (symlinked from .claude/skills)
+.agents/
+
+# Empty libcurl cookie jar artifact
+cookies.txt

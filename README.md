@@ -67,11 +67,97 @@ Connecting GitHub (`/github` in the app) runs a background backfill that builds 
 
 To create a GitHub OAuth App, go to **Settings → Developer settings → OAuth Apps** and set the callback URL to your `GITHUB_CALLBACK_URL`.
 
+## Password reset
+
+From `/login`, **Forgot password?** takes the user to `/forgot-password`. The backend looks the address up in the database: if no account exists it returns a 404 `No account found with that email.` and sends nothing; only registered addresses get an email. A single-use link is emailed to `/reset-password?token=...`; it expires after 60 minutes, and requesting a new link invalidates any earlier one.
+
+Tokens are stored as SHA-256 digests (`password_reset_tokens`), so a database leak cannot be replayed. Redeeming a token sets the new password, deletes every other reset token for that user, and revokes all of the user's refresh tokens so any stolen session dies with the old password.
+
+Email is sent over SMTP. Without `SMTP_HOST` (local development, tests) the reset link is written to the server console instead, so the flow works with no mail provider configured.
+
+| Variable | Purpose |
+|---|---|
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` | SMTP relay; when `SMTP_HOST` is unset, reset links are logged instead of sent |
+| `SMTP_USER` / `SMTP_PASS` | SMTP credentials (omit for unauthenticated relays) |
+| `MAIL_FROM` | From header, e.g. `DevCollab <no-reply@devcollab.com>` |
+| `FRONTEND_URL` | Base URL used to build the reset link (no trailing slash) |
+| `AUTH_RATE_LIMIT_MAX` | Per-IP, per-15-minute budget for the unauthenticated auth endpoints (default `20`) |
+
+## Contribution agent
+
+`GET /api/contributions` answers *"where can this person actually contribute?"* rather than *"which repositories mention their keywords"*. A five-stage agent workflow runs over two inputs:
+
+```
+evidence_events ─► capability analyst ────┐
+                ─► working-style analyst ─┤
+                ─► label analyst ─────────┼─► matcher ─► explainer ─► ranked issues
+github_issues   ─► project analyst ───────┘
+```
+
+- **Capability analyst** — infers an overall level (`newcomer` → `expert`) plus six dimensions (language depth, code volume, review capability, breadth, consistency, collaboration) from evidence counts. Confidence is tracked separately and gates the upper levels, so a three-event account cannot be labelled an expert.
+- **Working-style analyst** — infers *how* someone works: archetype, whether they lean towards code or review, whether their changed files skew to tests/docs/CI/infrastructure, their preferred change scope, and whether their cadence is steady, bursty, or occasional. Every trait carries the raw numbers behind it.
+- **Label analyst** — reads maintainer-declared intent from issue labels, and (more usefully) learns which work types have actually been *merged* from this person by reading the labels on their merged PRs. See below.
+- **Project analyst** — for each issue, derives the repo's stack from collected language/topic metadata, estimates issue difficulty and scope, and reuses the existing friendliness/freshness signals.
+- **Matcher** — combines skill match, capability fit, infrastructure fit, label fit, keyword similarity, friendliness, and freshness. Capability fit means a newcomer is not handed an `epic` in a 200k-star repo, and an expert is not offered only starter labels.
+- **Explainer** — produces a grounded `why` list and a concrete `next_step` per recommendation.
+
+### Label analyst
+
+Labels are the maintainers' own declaration of what a piece of work is, which makes them the most direct signal available — but the vocabulary is wildly inconsistent between repositories. The corpus contains `bug`, `kind/bug`, `kind:bug`, `c bug`, `bug/1 unconfirmed`, `failed test`, `flaky test`, and `type/docs` for the same handful of concepts.
+
+Matching therefore works on a tokenized form where every non-alphanumeric run becomes a space, so `kind/bug`, `kind:bug` and `c bug` all collapse to `kind bug` and match one pattern — no per-repository spelling table. Anything the taxonomy does not recognise (area labels such as `area:adapters`, `provider:fab`, `turbopack`) correctly yields no work type rather than a wrong one.
+
+The analyst does two things:
+
+- **Classifies each issue** into a work type (`bug-fix`, `documentation`, `feature`, `performance`, `refactor`, `testing`, `infrastructure`, `design`, `security`, `maintenance`, `starter`) with a difficulty implication, plus *modifier* labels that adjust confidence. Triage-flavoured labels (`needs triage`, `unconfirmed`) reduce confidence; closed-off ones (`duplicate`, `wontfix`, `blocked`) remove the issue from the pool entirely, since recommending them wastes the reader's time.
+- **Learns the user's demonstrated work types** from the labels their merged PRs carried. A merged PR held a label because a maintainer accepted that description of the work, so this is a record of what the person is *ready for* rather than what they claim. A user whose merged work is 8 bug fixes and 2 doc changes is not the same candidate as one whose work is performance and breaking changes.
+
+The result drives a `label_fit` score, the `work_type` filter, work-type badges on each card, and a **Demonstrated work types** panel that doubles as filter chips.
+
+`GET /api/contributions?work_type=bug-fix` narrows the pool before ranking (an unrecognised value is ignored rather than returning nothing). Issues whose labels imply no work type still get a neutral label score rather than being penalised.
+
+### Optional LLM enrichment
+
+The agent is **fully functional with no LLM configured**. Every score is computed deterministically; the model only supplies prose. Set `LLM_API_KEY` to add a capability narrative and sharper per-recommendation reasons — a missing, slow, or malformed response degrades to the deterministic text and cannot change a score. Any OpenAI-compatible endpoint works by setting `LLM_BASE_URL` (OpenAI, Groq, OpenRouter, Together, local Ollama).
+
+| Variable | Purpose |
+|---|---|
+| `LLM_API_KEY` | Enables LLM enrichment; unset = deterministic-only (default) |
+| `LLM_BASE_URL` | OpenAI-compatible base URL (default `https://api.openai.com/v1`) |
+| `LLM_MODEL` | Model name (default `gpt-4o-mini`) |
+| `LLM_TIMEOUT_MS` | Per-call timeout before falling back to deterministic text (default `20000`) |
+| `CONTRIBUTION_AGENT_MAX_CORPUS` | Max issues scored per request (default `400`) |
+| `GITHUB_BACKFILL_MAX_PR_FILE_PATHS` | Changed-file paths stored per merged PR; these drive the working-style traits |
+
+#### Groq setup
+
+Groq is OpenAI-compatible, so it needs only config — no code change, no SDK. In `backend/.env`:
+
+```bash
+LLM_API_KEY=gsk_...                                  # https://console.groq.com/keys
+LLM_BASE_URL=https://api.groq.com/openai/v1
+LLM_MODEL=openai/gpt-oss-120b                        # or openai/gpt-oss-20b (cheaper/faster)
+```
+
+Recommended model ids (Groq retires models periodically — check `https://console.groq.com/docs/models`):
+
+| Model id | Notes |
+|---|---|
+| `openai/gpt-oss-120b` | Best quality among current production models; ~$0.15/$0.60 per 1M tokens |
+| `openai/gpt-oss-20b` | Cheaper and faster; adequate for narrative wording |
+| `qwen/qwen3.8-27b` | Alternative with a much larger context window (preview tier) |
+
+The backend logs its active model at boot (`Contribution agent: LLM enrichment on (<model> via <url>)`), and every failed call logs the HTTP status, model, and base URL — so a bad key or a retired model id is diagnosable from the logs rather than a silent quality drop. Because these models are reasoning models, the completion budget is sized to cover hidden reasoning tokens as well as the visible JSON.
+
+
+Analysis is cached in `contribution_profiles` keyed by an evidence fingerprint, so an unchanged history reuses the previous narrative instead of paying for another LLM call. Existing accounts need a backfill re-run to populate the diff-size and changed-path signals that working-style analysis reads; without them those traits report as unknown rather than guessing.
+
 ## Main API areas
 
 - `/api/auth` — registration, sign-in, profiles, tokens, and GitHub OAuth (`/api/auth/github`, `/api/auth/github/callback`)
 - `/api/github` — backfill status, evidence/skill data, manual backfill retry
 - `/api/projects` — project discovery, creation, updates, stars, forks, and collaboration requests
+- `/api/contributions` — agent-analyzed capability + working-style profile and matched open-source issues
 - `/api/reviews` — reviews, ratings, replies, and reactions
 - `/api/admin` — user and project moderation
 

@@ -60,28 +60,18 @@ maybe("Auth + projects smoke (pg-mem or DATABASE_URL_TEST)", () => {
     process.env.DATABASE_URL = TEST_DB;
   });
 
-  test("registers, creates a project, lists and deletes it", async () => {
+  test("registers and refreshes the session", async () => {
     const email = `test_${Date.now()}@example.com`;
     const reg = await request(app)
       .post("/api/auth/register")
       .send({ name: "Tester", email, password: "password123" });
     assert.equal(reg.status, 201);
     cookies = reg.headers["set-cookie"];
+    assert.ok(cookies, "auth cookies set");
 
-    const create = await request(app)
-      .post("/api/projects/create")
-      .set("Cookie", cookies)
-      .field("title", "Hello World")
-      .field("description", "This is a test project description.")
-      .field("category", "test");
-    assert.equal(create.status, 201);
-    const projectId = create.body.data.id;
-
-    const list = await request(app).get("/api/projects").set("Cookie", cookies);
-    assert.equal(list.status, 200);
-
-    const del = await request(app).delete(`/api/projects/${projectId}`).set("Cookie", cookies);
-    assert.equal(del.status, 200);
+    const me = await request(app).get("/api/auth/me").set("Cookie", cookies);
+    assert.equal(me.status, 200);
+    assert.equal(me.body.name, "Tester");
   });
 
   test("contact request appears in the recipient's notifications", async () => {

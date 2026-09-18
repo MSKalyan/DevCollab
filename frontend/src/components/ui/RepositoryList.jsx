@@ -30,6 +30,12 @@ export default function RepositoryList({
             {repo.description && (
               <p className="mt-1 line-clamp-2 text-sm text-ink-muted">{repo.description}</p>
             )}
+            {repo.stars !== undefined && (
+              <p className="mt-1 font-mono text-[0.6875rem] uppercase tracking-wider text-ink-muted">
+                {repo.stars > 0 ? `★ ${repo.stars}` : "★ 0"}
+                {repo.forks > 0 && ` · ⑂ ${repo.forks}`}
+              </p>
+            )}
             {repo.topics?.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {repo.topics.slice(0, 8).map((t) => (

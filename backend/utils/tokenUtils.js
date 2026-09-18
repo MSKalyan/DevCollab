@@ -24,6 +24,22 @@ export function createRefreshToken() {
   return { token, expiresAt };
 }
 
+
+const PASSWORD_RESET_TOKEN_EXPIRY_MINUTES = 60;
+
+// Reset tokens are stored as SHA-256 digests: a leaked database row cannot be
+// replayed against the API, and the raw token only ever travels by email.
+export function hashPasswordResetToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+export function createPasswordResetToken() {
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(
+    Date.now() + PASSWORD_RESET_TOKEN_EXPIRY_MINUTES * 60 * 1000
+  );
+  return { token, tokenHash: hashPasswordResetToken(token), expiresAt };
+}
 export function isProduction() {
   return process.env.NODE_ENV === "production";
 }

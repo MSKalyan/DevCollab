@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { Home, Compass, Folder, PlusSquare, Users, User, X, Github, MessageSquare } from "lucide-react";
+import { Home, Folder, Users, User, X, Github, MessageSquare, Compass } from "lucide-react";
 import Logo from "./ui/Logo";
 import useAuth from "../hooks/useAuth";
 
@@ -9,7 +9,6 @@ const links = [
   { to: "/github", label: "GitHub Evidence", icon: Github },
   { to: "/projects", label: "Explore Projects", icon: Compass },
   { to: "/myprojects", label: "My Projects", icon: Folder },
-  { to: "/create", label: "Share Project", icon: PlusSquare },
   { to: "/developers", label: "Developers", icon: Users },
   { to: "/chats", label: "Chats", icon: MessageSquare },
   { to: "/editprofile", label: "Profile", icon: User },

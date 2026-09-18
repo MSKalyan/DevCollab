@@ -29,7 +29,7 @@ export default function Register() {
     try {
       await login(() => api.post("/auth/register", { name: form.name, email: form.email, password: form.password }));
       toast.success("Account created — welcome to DevCollab!");
-      navigate("/projects");
+      navigate("/github");
     } catch (err) {
       const msg = err.response?.data?.message || "Registration failed";
       setError(msg);

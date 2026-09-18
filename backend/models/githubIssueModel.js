@@ -7,6 +7,13 @@ export const ISSUE_COLUMNS = `
   created_at_db, updated_at_db
 `;
 
+// ISSUE_COLUMNS qualified with the `ci` alias — required when github_issues is
+// joined to another table (e.g. curated_repositories) that also has `id`.
+export const ISSUE_COLUMNS_ALIASED = ISSUE_COLUMNS.trim()
+  .split(",")
+  .map((c) => `ci.${c.trim()}`)
+  .join(", ");
+
 function parseJson(value) {
   if (value === null || value === undefined) return value;
   if (typeof value === "string") return JSON.parse(value);
@@ -154,11 +161,11 @@ export async function listEligibleIssues({
   }
 
   const result = await pool.query(
-    `SELECT ${ISSUE_COLUMNS}, ci.full_name AS repo_full_name
+    `SELECT ${ISSUE_COLUMNS_ALIASED}, cr.full_name AS repo_full_name
      FROM github_issues ci
      JOIN curated_repositories cr ON cr.id = ci.repository_id
      WHERE ${where.join(" AND ")}
-     ORDER BY updated_at DESC NULLS LAST
+     ORDER BY ci.updated_at DESC NULLS LAST
      LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
     [...params, limit, offset]
   );

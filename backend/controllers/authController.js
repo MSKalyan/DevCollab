@@ -5,13 +5,22 @@ import {
   createRefreshToken,
   setAuthCookies,
   clearAuthCookies,
+  createPasswordResetToken,
+  hashPasswordResetToken,
 } from "../utils/tokenUtils.js";
+import { sendPasswordResetEmail } from "../utils/mailer.js";
 import {
   storeRefreshToken,
   findRefreshToken,
   deleteRefreshToken,
   deleteAllUserRefreshTokens,
 } from "../models/refreshTokenModel.js";
+import {
+  storePasswordResetToken,
+  findPasswordResetToken,
+  claimPasswordResetToken,
+  deleteUserPasswordResetTokens,
+} from "../models/passwordResetModel.js";
 import { sendError, sendServerError } from "../utils/response.js";
 import {
   createContactRequest,
@@ -20,8 +29,8 @@ import {
   getUserByEmail,
   getUserById,
   getUserProfile,
-  getUserProjects,
   updateUserNameAndPassword,
+  updateUserPassword,
 } from "../models/userModel.js";
 import {
   findGithubAccountByUserId,
@@ -229,8 +238,8 @@ export const listDevelopers = async (req, res) => {
   try {
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit) || 12, 1), 50);
-    const { search = "", tech = "" } = req.query;
-    const { developers, total } = await getDevelopers(page, limit, search, tech);
+    const { search = "" } = req.query;
+    const { developers, total } = await getDevelopers(page, limit, search);
     res.json({ success: true, data: { developers, page, total, totalPages: Math.ceil(total / limit) } });
   } catch (err) {
     return sendServerError(res, err);
@@ -241,12 +250,9 @@ export const getDeveloperProfile = async (req, res) => {
   try {
     const developer = await getUserProfile(req.params.id);
     if (!developer) return sendError(res, 404, "Developer not found");
-    const [projects, github] = await Promise.all([
-      getUserProjects(req.params.id),
-      buildGithubSnapshot(developer.id),
-    ]);
+    const github = await buildGithubSnapshot(developer.id);
     const { email, ...publicDeveloper } = developer;
-    res.json({ success: true, data: { developer: publicDeveloper, projects, github } });
+    res.json({ success: true, data: { developer: publicDeveloper, github } });
   } catch (err) { return sendServerError(res, err); }
 };
 
@@ -309,4 +315,64 @@ export const requestContact = async (req, res) => {
     );
     res.status(201).json({ success: true, data: { request }, message: "Contact request sent" });
   } catch (err) { return sendServerError(res, err); }
+};
+
+export const forgotPassword = async (req, res) => {
+  const email = req.body.email.trim().toLowerCase();
+
+  try {
+    const user = await getUserByEmail(email);
+    if (!user) {
+      return sendError(res, 404, "No account found with that email.");
+    }
+
+    const { token, tokenHash, expiresAt } = createPasswordResetToken();
+    await storePasswordResetToken(user.id, tokenHash, expiresAt);
+
+    const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
+    const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
+
+    try {
+      await sendPasswordResetEmail(user.email, resetUrl);
+    } catch (mailErr) {
+      // A failed send must not strand the user with a token they never got.
+      await deleteUserPasswordResetTokens(user.id);
+      return sendServerError(res, mailErr, "Could not send the reset email.");
+    }
+    return res.json({ success: true, message: "A password reset link has been sent to your email." });
+  } catch (err) {
+    return sendServerError(res, err);
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  const { token, password } = req.body;
+
+  try {
+    const record = await findPasswordResetToken(hashPasswordResetToken(token.trim()));
+    if (!record || record.used_at || new Date(record.expires_at) < new Date()) {
+      return sendError(res, 400, "This reset link is invalid or has expired.");
+    }
+
+    // Burn the token before touching the password so the link is single-use
+    // even if two requests race.
+    const claimed = await claimPasswordResetToken(record.id);
+    if (!claimed) {
+      return sendError(res, 400, "This reset link is invalid or has expired.");
+    }
+
+    await updateUserPassword(record.user_id, await bcrypt.hash(password, 10));
+
+    // A password change invalidates every existing session for that account.
+    await deleteAllUserRefreshTokens(record.user_id);
+    await deleteUserPasswordResetTokens(record.user_id);
+    clearAuthCookies(res);
+
+    return res.json({
+      success: true,
+      message: "Password updated. You can sign in with your new password.",
+    });
+  } catch (err) {
+    return sendServerError(res, err);
+  }
 };

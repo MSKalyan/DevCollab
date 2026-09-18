@@ -1,101 +1,83 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { Github, Compass, RefreshCw } from "lucide-react";
 import api from "../api/api";
-import ProjectCard from "../components/ProjectCard";
 import PageShell from "../components/ui/PageShell";
 import Button from "../components/ui/Button";
 import EmptyState from "../components/ui/EmptyState";
 import SectionHeader from "../components/ui/SectionHeader";
+import RepositoryList from "../components/ui/RepositoryList";
 import { FullPageLoader } from "../components/ui/Spinner";
-import { ConfirmDialog } from "../components/ui/Modal";
 import { useToast } from "../components/ui/Toast";
-import { FolderGit2, PlusSquare } from "lucide-react";
 
 export default function MyProjects() {
-  const [projects, setProjects] = useState([]);
+  const [repositories, setRepositories] = useState([]);
+  const [connected, setConnected] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [pendingDelete, setPendingDelete] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-  const navigate = useNavigate();
   const toast = useToast();
 
-  const loadProjects = async () => {
+  const loadContributions = async () => {
+    setLoading(true);
     try {
-      const res = await api.get("/projects/myprojects");
-      setProjects(res.data.data || []);
+      const res = await api.get("/github/evidence");
+      setConnected(res.data.connected !== false);
+      setRepositories(res.data.repositories || []);
     } catch {
-      toast.error("Please log in to see your projects.");
+      toast.error("Unable to load your contributions.");
     } finally {
       setLoading(false);
     }
   };
-  // Load this user's projects when the screen opens.
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { loadProjects(); }, []);
+  useEffect(() => { loadContributions(); }, []);
 
-  const deleteProject = async () => {
-    if (!pendingDelete) return;
-    setDeleting(true);
-    try {
-      await api.delete(`/projects/${pendingDelete.id}`);
-      setProjects((items) => items.filter((item) => item.id !== pendingDelete.id));
-      toast.success("Project deleted.");
-      setPendingDelete(null);
-    } catch {
-      toast.error("Unable to delete this project.");
-    } finally { setDeleting(false); }
-  };
-
-  if (loading) return <FullPageLoader label="Loading your projects…" />;
+  if (loading) return <FullPageLoader label="Loading your contributions…" />;
 
   return (
     <PageShell
-      eyebrow="workspace"
+      eyebrow="contribution history"
       title="My Projects"
-      subtitle="Manage what you have shared with the DevCollab community."
+      subtitle="The open-source projects you've contributed to — straight from your GitHub evidence."
       actions={
-        <Button onClick={() => navigate("/create")}>
-          <PlusSquare className="h-4 w-4" /> Share Project
+        <Button variant="secondary" onClick={loadContributions}>
+          <RefreshCw className="h-4 w-4" /> Refresh
         </Button>
       }
     >
-      {projects.length === 0 ? (
+      {!connected ? (
         <EmptyState
-          icon={FolderGit2}
-          title="No projects yet"
-          description="Share a project to get feedback and find collaborators."
+          icon={Github}
+          title="Connect GitHub to see your contributions"
+          description="Connect your GitHub account and DevCollab will track the projects you've contributed to via merged PRs and reviews."
           action={
-            <Button onClick={() => navigate("/create")}>
-              <PlusSquare className="h-4 w-4" /> Share Project
-            </Button>
+            <Link to="/github">
+              <Button>Connect GitHub</Button>
+            </Link>
+          }
+        />
+      ) : repositories.length === 0 ? (
+        <EmptyState
+          icon={Compass}
+          title="No contributions yet"
+          description="You haven't contributed to any tracked projects yet. Explore open-source projects and make your first PR — it will show up here."
+          action={
+            <Link to="/projects">
+              <Button>Explore projects to contribute</Button>
+            </Link>
           }
         />
       ) : (
         <>
-          <SectionHeader count={projects.length}>Shared projects</SectionHeader>
-          <div className="space-y-4">
-            {projects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                showActions
-                onEdit={(item) => navigate(`/projects/${item.id}/edit`)}
-                onDelete={setPendingDelete}
-              />
-            ))}
+          <SectionHeader count={repositories.length}>Projects I've contributed to</SectionHeader>
+          <div className="surface p-6">
+            <RepositoryList
+              repositories={repositories}
+              emptyMessage="No contributions found."
+            />
           </div>
         </>
       )}
-
-      <ConfirmDialog
-        open={!!pendingDelete}
-        onClose={() => setPendingDelete(null)}
-        onConfirm={deleteProject}
-        loading={deleting}
-        title="Delete this project?"
-        message={pendingDelete ? `“${pendingDelete.title}” will be permanently removed.` : ""}
-        confirmLabel="Delete"
-      />
     </PageShell>
   );
 }

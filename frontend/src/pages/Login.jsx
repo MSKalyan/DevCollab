@@ -26,7 +26,7 @@ export default function Login() {
     try {
       await login(() => api.post("/auth/login", { email, password }));
       toast.success("Welcome back!");
-      navigate("/projects");
+      navigate("/github");
     } catch (err) {
       const data = err.response?.data;
       const msg = (data && (data.message || (typeof data === "string" ? data : null))) || "Login failed";
@@ -57,7 +57,7 @@ export default function Login() {
               try {
                 await login(() => api.post("/auth/google", { credential: credentialResponse.credential }));
                 toast.success("Signed in with Google");
-                navigate("/projects");
+                navigate("/github");
               } catch {
                 toast.error("Google login failed");
               }
@@ -81,6 +81,11 @@ export default function Login() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input label="Email" type="email" name="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required autoComplete="email" icon={Mail} />
         <Input label="Password" type="password" name="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required autoComplete="current-password" icon={Lock} />
+        <div className="text-right">
+          <Link to="/forgot-password" className="text-xs font-medium text-brand-soft hover:underline">
+            Forgot password?
+          </Link>
+        </div>
         <Button type="submit" loading={loading} className="w-full" size="lg">Sign in</Button>
       </form>
     </AuthLayout>

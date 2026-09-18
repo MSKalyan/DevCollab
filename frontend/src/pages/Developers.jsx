@@ -29,7 +29,7 @@ export default function Developers() {
     <PageShell
       eyebrow="directory"
       title="Developers"
-      subtitle="Discover people building interesting projects in the DevCollab community."
+      subtitle="Discover open source developers building on GitHub and connect with them."
     >
       <div className="relative mb-6">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
@@ -59,7 +59,7 @@ export default function Developers() {
                   <div>
                     <h2 className="font-semibold text-ink">{developer.name}</h2>
                     <p className="font-mono text-xs uppercase tracking-widest text-ink-muted">
-                      {developer.project_count} {developer.project_count === 1 ? "project" : "projects"}
+                      {developer.github_username ? `@${developer.github_username}` : "developer"}
                     </p>
                   </div>
                 </div>

@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { Bell, X } from "lucide-react";
 import api from "../api/api";
 import Avatar from "./ui/Avatar";
@@ -100,26 +99,13 @@ export default function NotificationsDropdown() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-ink">
                       {r.sender_name}
-                      <span className="text-ink-muted">
-                        {" "}sent you a {r.type === "contact" ? "contact" : "collaboration"} request
-                      </span>
+                      <span className="text-ink-muted"> sent you a contact request</span>
                     </p>
                     {r.message && <p className="mt-0.5 line-clamp-2 text-xs text-ink-muted">{r.message}</p>}
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      {r.type === "collab" && r.project_title && (
-                        <Link
-                          to={`/projects/${r.project_id}`}
-                          onClick={() => setOpen(false)}
-                          className="font-mono text-[0.6875rem] text-merge hover:underline"
-                        >
-                          {r.project_title}
-                        </Link>
-                      )}
-                      <span className="font-mono text-[0.625rem] uppercase tracking-wider text-ink-muted">
-                        {relativeTime(r.created_at)}
-                      </span>
-                    </div>
-                    {r.status === "pending" && r.type === "contact" && (
+                    <span className="mt-1 inline-block font-mono text-[0.625rem] uppercase tracking-wider text-ink-muted">
+                      {relativeTime(r.created_at)}
+                    </span>
+                    {r.status === "pending" && (
                       <div className="mt-2 flex gap-2">
                         <Button
                           size="sm"
@@ -139,9 +125,6 @@ export default function NotificationsDropdown() {
                       </div>
                     )}
                   </div>
-                  {r.status === "pending" && r.type !== "contact" && (
-                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-merge" title="Pending" />
-                  )}
                 </div>
               ))
             )}

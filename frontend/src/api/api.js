@@ -12,6 +12,14 @@ const api = axios.create({
 let isRefreshing = false;
 let pendingQueue = [];
 
+// Fired when the refresh attempt itself fails — the session is genuinely dead
+// and no retry will help. The AuthProvider listens for this to redirect to login.
+export function notifySessionExpired() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("auth:session-expired"));
+  }
+}
+
 function flushQueue(error, success) {
   pendingQueue.forEach((p) => (success ? p.resolve() : p.reject(error)));
   pendingQueue = [];
@@ -54,6 +62,7 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshErr) {
         flushQueue(refreshErr, false);
+        notifySessionExpired();
         return Promise.reject(refreshErr);
       } finally {
         isRefreshing = false;
