@@ -40,6 +40,42 @@ function mailFrom() {
   return process.env.MAIL_FROM || "DevCollab <no-reply@devcollab.local>";
 }
 
+// Emailed one-time code. The code itself is short-lived and attempt-capped;
+// the email never contains a session or a link that logs the user in.
+export async function sendVerificationCodeEmail(to, code) {
+  const transporter = getTransporter();
+  if (!transporter) {
+    devOutbox.push({ to, code, sentAt: new Date() });
+    console.warn(`[mail] SMTP_HOST is not set; not sending mail. Verification code for ${to}: ${code}`);
+    return { delivered: false };
+  }
+
+  await transporter.sendMail({
+    from: mailFrom(),
+    to,
+    subject: "Your DevCollab verification code",
+    text: [
+      "Confirm your email address to finish creating your DevCollab account.",
+      "",
+      `Your verification code is: ${code}`,
+      "",
+      "It expires in 10 minutes. If you did not sign up, ignore this email.",
+    ].join("\n"),
+    html: `
+      <div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;line-height:1.6;color:#111">
+        <p>Confirm your email address to finish creating your DevCollab account.</p>
+        <p style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:28px;font-weight:600;letter-spacing:0.24em;margin:18px 0">
+          ${code}
+        </p>
+        <p>This code expires in 10 minutes.</p>
+        <p style="color:#555">If you did not sign up, ignore this email.</p>
+      </div>
+    `,
+  });
+
+  return { delivered: true };
+}
+
 export async function sendPasswordResetEmail(to, resetUrl) {
   const transporter = getTransporter();
   if (!transporter) {

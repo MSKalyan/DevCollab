@@ -17,15 +17,21 @@ process.env.GITHUB_TOKEN_ENCRYPTION_KEY =
   process.env.GITHUB_TOKEN_ENCRYPTION_KEY || "test-encryption-key-do-not-use-in-prod";
 
 const app = await import("../app.js").then((m) => m.default);
+// app.js re-runs dotenv.config(), which repopulates SMTP_HOST from .env; delete
+// it after the import so the verification code lands in the dev outbox.
+delete process.env.SMTP_HOST;
+
+const { uniqueEmail, registerVerifiedUser } = await import("./helpers/authFlow.js");
 const { __setIdentityResolver, __setExchangeImpl } = await import("../services/github/githubAuth.js");
 const { findGithubAccountByUserId } = await import("../models/githubAccountModel.js");
 const { encryptGithubToken, decryptGithubToken } = await import("../utils/githubTokenCrypto.js");
 
 async function registerAndGetCookies() {
-  const res = await request(app)
-    .post("/api/auth/register")
-    .send({ name: "OAuth Tester", email: `oauth_${Date.now()}@example.com`, password: "password123" });
-  return res.headers["set-cookie"];
+  const { cookies } = await registerVerifiedUser({
+    name: "OAuth Tester",
+    email: uniqueEmail("oauth"),
+  });
+  return cookies;
 }
 
 function parseCookieValue(cookies, name) {

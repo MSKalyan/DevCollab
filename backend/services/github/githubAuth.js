@@ -9,7 +9,13 @@ export const GITHUB_ACCESS_TOKEN_URL = "https://github.com/login/oauth/access_to
 // Stringent scope set for building an evidence graph from a user's history.
 export const GITHUB_SCOPES = "read:user repo:status user:email read:org";
 
+// Sign-in scopes only. Signing in must not ask for repository access: `read:user`
+// gives the profile and `user:email` the verified address, which is everything
+// the account handoff needs.
+export const GITHUB_LOGIN_SCOPES = "read:user user:email";
+
 const STATE_COOKIE = "github_oauth_state";
+const LOGIN_STATE_COOKIE = "github_login_state";
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 export function requireGithubConfig() {
@@ -28,12 +34,12 @@ export function generateState() {
   return crypto.randomBytes(24).toString("hex");
 }
 
-export function buildAuthorizeUrl(state) {
+export function buildAuthorizeUrl(state, { scopes = GITHUB_SCOPES } = {}) {
   const { clientId, callbackUrl } = requireGithubConfig();
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: callbackUrl,
-    scope: GITHUB_SCOPES,
+    scope: scopes,
     state,
   });
   return `${GITHUB_AUTHORIZE_URL}?${params.toString()}`;
@@ -49,7 +55,16 @@ export function stateCookieOptions() {
   };
 }
 
+// GitHub OAuth Apps accept exactly ONE registered callback URL, so both flows
+// post back to GITHUB_CALLBACK_URL. The callback tells them apart by which state
+// cookie the returned `state` matches — a distinct cookie name per flow keeps the
+// two from trading CSRF tokens in one browser session.
+export const LOGIN_STATE_COOKIE_NAME = LOGIN_STATE_COOKIE;
 export const STATE_COOKIE_NAME = STATE_COOKIE;
+
+export function loginStateCookieOptions() {
+  return stateCookieOptions();
+}
 
 // Test seam: controllers resolve the GitHub identity via this resolver so tests
 // can inject a stub without hitting the real GitHub API.
@@ -66,6 +81,39 @@ export async function resolveOAuthIdentity(accessToken) {
   const { getAuthenticatedUser } = await import("./githubUser.js");
   const client = createGithubClient(accessToken);
   return getAuthenticatedUser(client);
+}
+
+// Only a verified address may identify an account: trusting an unverified one
+// would let anyone claim an existing profile by adding its email to their GitHub
+// account. Prefer the primary address, then any other verified one.
+export function pickVerifiedEmail(emails) {
+  const verified = (Array.isArray(emails) ? emails : []).filter(
+    (e) => e && e.verified && e.email
+  );
+  const preferred = verified.find((e) => e.primary) || verified[0];
+  return preferred ? preferred.email.trim().toLowerCase() : null;
+}
+
+// Test seam for the verified-address lookup.
+let emailResolver = null;
+export function __setEmailResolver(fn) {
+  emailResolver = fn;
+}
+
+// The verified address for a GitHub identity. `user:email` is required for this
+// because the profile endpoint omits the address when the user keeps it private.
+export async function resolveVerifiedEmail(accessToken, identity) {
+  if (typeof emailResolver === "function") {
+    return pickVerifiedEmail(await emailResolver(accessToken, identity));
+  }
+  if (identity?.email) return identity.email.trim().toLowerCase();
+
+  const { createGithubClient } = await import("./githubClient.js");
+  const client = createGithubClient(accessToken);
+  const emails = await client.request((octokit) =>
+    octokit.rest.users.listEmailsForAuthenticatedUser()
+  );
+  return pickVerifiedEmail(emails);
 }
 
 // Test seam for the code -> token exchange step.

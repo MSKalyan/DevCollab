@@ -14,9 +14,11 @@ import {
   generateState,
   stateCookieOptions,
   STATE_COOKIE_NAME,
+  LOGIN_STATE_COOKIE_NAME,
   exchangeAuthorizationCode,
   resolveOAuthIdentity,
 } from "../services/github/githubAuth.js";
+import { completeGithubLogin } from "./githubLoginController.js";
 import { createGithubClient, GithubApiError } from "../services/github/githubClient.js";
 import { encryptGithubToken, decryptGithubToken } from "../utils/githubTokenCrypto.js";
 import { enqueueBackfill } from "../jobs/queue.js";
@@ -53,14 +55,32 @@ export const initiateGithub = (req, res) => {
   }
 };
 
-// 2) GitHub redirects here with code + state after the user authorizes.
+// 2) GitHub redirects here with code + state for BOTH flows: a GitHub OAuth App
+// has one registered callback URL, so sign-in and connect share this endpoint.
+// Which flow this is comes from the state cookie the returned `state` matches —
+// an unauthenticated browser can only have started the sign-in flow.
 export const githubCallback = async (req, res) => {
   const { code, state, error } = req.query;
   const redirectOk = frontendRedirect();
   const redirectErr = (reason) => res.redirect(`${redirectOk}?error=${encodeURIComponent(reason)}`);
 
+  // Which flow is this? The login state cookie is written by the public sign-in
+  // initiation only, so its presence is the reliable signal. The connect cookie
+  // is the fallback. When neither cookie survived, an authenticated session can
+  // only be a connect attempt and an anonymous one can only be a sign-in — the
+  // two flows redirect to different pages, so misattributing them would send a
+  // visitor to a page about connecting GitHub they never asked for.
+  const loginState = req.cookies?.[LOGIN_STATE_COOKIE_NAME];
+  const connectState = req.cookies?.[STATE_COOKIE_NAME];
+  const isLoginFlow = loginState !== undefined || (!connectState && !req.user);
+
+  if (isLoginFlow) {
+    // The sign-in handler owns its own error redirects and its own CSRF check.
+    return completeGithubLogin(req, res, code, state);
+  }
+
   // CSRF protection: fail closed when state is missing/mismatched.
-  if (!state || state !== req.cookies?.[STATE_COOKIE_NAME]) {
+  if (!state || state !== connectState) {
     return redirectErr("invalid_state");
   }
   res.clearCookie(STATE_COOKIE_NAME, stateCookieOptions());

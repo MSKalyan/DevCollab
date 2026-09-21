@@ -97,7 +97,12 @@ describe("GitHub backfill", () => {
   let account;
 
   before(async () => {
-    const user = await createUser("Dev", "backfill@example.com", "password123");
+    const user = await createUser({
+      name: "Dev",
+      email: "backfill@example.com",
+      password: "password123",
+      emailVerified: true,
+    });
     userId = user.id;
   });
 

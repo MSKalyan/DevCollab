@@ -18,17 +18,17 @@ process.env.AUTH_RATE_LIMIT_MAX = "1000";
 process.env.LLM_API_KEY = "";
 
 const app = await import("../app.js").then((m) => m.default);
+// app.js re-runs dotenv.config(), which repopulates SMTP_HOST from .env; delete
+// it after the import so verification mail lands in the dev outbox.
+delete process.env.SMTP_HOST;
+
+const { uniqueEmail, registerVerifiedUser } = await import("./helpers/authFlow.js");
 
 const TEST_DB = process.env.DATABASE_URL_TEST || "pg-mem:";
 
-async function registerUser(prefix) {
-  const email = `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}@example.com`;
-  const res = await request(app)
-    .post("/api/auth/register")
-    .send({ name: "Agent Tester", email, password: "password123" });
-  assert.equal(res.status, 201);
-  return { email, cookies: res.headers["set-cookie"] };
-}
+// Registration is only 201 + no session; the verified round-trip is what hands
+// back cookies.
+const registerUser = (prefix) => registerVerifiedUser({ name: "Agent Tester", email: uniqueEmail(prefix) });
 
 // Give the user a connected GitHub account plus evidence, mirroring what the
 // backfill would have written.

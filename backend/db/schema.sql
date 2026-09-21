@@ -17,6 +17,43 @@ CREATE TABLE IF NOT EXISTS users (
   created_at      TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
+-- Email verification state ---------------------------------------------
+-- Upgrade order matters: the column starts nullable, only pre-existing rows
+-- (NULL) are grandfathered in as verified, then new writes are constrained.
+-- Re-running this file is a no-op because no NULL survives the first pass.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(64);
+UPDATE users
+  SET email_verified = TRUE,
+      email_verified_at = COALESCE(email_verified_at, created_at)
+  WHERE email_verified IS NULL;
+ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT FALSE;
+ALTER TABLE users ALTER COLUMN email_verified SET NOT NULL;
+-- Plain unique index rather than a partial one. In PostgreSQL NULLs never
+-- conflict in a unique index, so "at most one Google identity per account" is
+-- already enforced; the partial form is mishandled by pg-mem (the test database).
+-- The drop retires the earlier partial index, whose name would otherwise make
+-- the CREATE below a silent no-op on an existing installation.
+DROP INDEX IF EXISTS idx_users_google_id;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_google_id ON users(google_id);
+
+-- One-time codes for email verification (OTP). Stored as SHA-256 digests for
+-- the same reason as password reset tokens: a database leak cannot be replayed
+-- against the API. Only the newest code for a user stays valid.
+CREATE TABLE IF NOT EXISTS email_verification_codes (
+  id          SERIAL PRIMARY KEY,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code_hash   VARCHAR(64) NOT NULL,
+  expires_at  TIMESTAMP   NOT NULL,
+  attempts    INTEGER     NOT NULL DEFAULT 0,
+  consumed_at TIMESTAMP,
+  created_at  TIMESTAMP   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_verification_codes_user
+  ON email_verification_codes(user_id);
+
 -- Safe upgrades for databases created by the earlier blogging application.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar VARCHAR(512);

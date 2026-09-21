@@ -45,6 +45,30 @@ npm start
 
 The schema is safe to run against an existing installation: it adds the DevCollab profile columns and creates the project, review, tag, star, fork, collaboration-request, `github_accounts`, `evidence_events`, and `skill_evidence` tables without deleting existing data.
 
+## Accounts: email verification and OAuth sign-in
+
+Three ways to get an account, all of which end in the same session cookies:
+
+**Email + password.** `POST /api/auth/register` creates the account *unverified* and emails a 6-digit code; it issues **no** session. `POST /api/auth/verify-email` with `{email, code}` confirms the address and only then signs the user in. Until then any authenticated route is closed and `POST /api/auth/login` answers `403 {code: "EMAIL_NOT_VERIFIED"}`, re-sending a code when none is live.
+
+- Codes expire after 10 minutes, are single-use, and allow 5 attempts before a new one is required. Only the newest code per user is valid, and re-requesting is rate-limited to one per 60 seconds (`POST /api/auth/resend-verification`).
+- Registering an address that is already **verified** is a `409`. Registering one that is still **pending** is a `200` that re-sends a code and leaves the stored password untouched — otherwise anyone who knows an address could plant a password and take the account over the moment the real owner verified.
+- Codes are stored as SHA-256 digests (`email_verification_codes`), so a database leak cannot be replayed, exactly like password reset tokens.
+
+**Google Sign-In.** The browser sends Google's ID token to `POST /api/auth/google`; only the backend verifies it against Google's keys (`GOOGLE_CLIENT_ID`). The account is matched by the Google subject first (so a later address change keeps the same account) and by verified email second, then created if neither matches. An unverified Google address is refused with `403`, and a Google identity is never allowed to take over an address that already belongs to another account.
+
+**GitHub sign-in.** `GET /api/auth/github/login` (public) returns the GitHub authorize URL with the minimal `read:user user:email` scopes. The callback lands on the **same** `/api/auth/github/callback` endpoint as "connect GitHub", because a GitHub OAuth App registers exactly one callback URL: the two flows are distinguished by which state cookie the returned `state` matches, and they redirect to different pages. Sign-in only trusts an address GitHub reports as verified, so an unverified address can never be used to claim an account. An account created this way starts already verified — the address was just proved.
+
+All three paths funnel through `services/auth/session.js`, so cookies, refresh-token rotation, and the `/api/auth/me` response shape cannot drift between them. `GET /api/auth/me` returns `{id, name, email, role, email_verified, has_password, has_google, created_at}`.
+
+| Variable | Purpose |
+|---|---|
+| `GOOGLE_CLIENT_ID` | Google Sign-In client id; must match the frontend's `REACT_APP_GOOGLE_CLIENT_ID` |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth App credentials, shared by sign-in and connect |
+| `GITHUB_CALLBACK_URL` | The single registered callback, e.g. `http://localhost:5000/api/auth/github/callback` |
+| `FRONTEND_URL` | Where OAuth callbacks redirect (no trailing slash) |
+| `AUTH_RATE_LIMIT_MAX` | Per-IP, per-15-minute budget covering `login`, `register`, `verify-email`, `resend-verification`, `forgot-password`, and `reset-password` (default `20`) |
+
 ## GitHub evidence graph
 
 Connecting GitHub (`/github` in the app) runs a background backfill that builds an evidence graph:
@@ -154,7 +178,7 @@ Analysis is cached in `contribution_profiles` keyed by an evidence fingerprint, 
 
 ## Main API areas
 
-- `/api/auth` — registration, sign-in, profiles, tokens, and GitHub OAuth (`/api/auth/github`, `/api/auth/github/callback`)
+- `/api/auth` — registration, email-verification codes, password sign-in, Google Sign-In, GitHub sign-in/connect OAuth, profiles, and token refresh
 - `/api/github` — backfill status, evidence/skill data, manual backfill retry
 - `/api/projects` — project discovery, creation, updates, stars, forks, and collaboration requests
 - `/api/contributions` — agent-analyzed capability + working-style profile and matched open-source issues
@@ -168,4 +192,4 @@ cd backend
 npm test
 ```
 
-The suite uses pg-mem (or `DATABASE_URL_TEST`) so it runs without a live PostgreSQL; Redis is not required. Coverage includes auth + project smoke tests, the GitHub OAuth flow, backfill idempotency/error handling, and skill extraction/scoring determinism.
+The suite uses pg-mem (or `DATABASE_URL_TEST`) so it runs without a live PostgreSQL; Redis is not required. Coverage includes the registration + OTP verification contract (attempt caps, code expiry, single-use, resend cooldown, pending re-register), Google and GitHub sign-in, auth + project smoke tests, backfill idempotency/error handling, and skill extraction/scoring determinism. Tests never send mail: the dev outbox in `utils/mailer.js` captures the code, and `tests/helpers/authFlow.js` drives the whole register → verify round-trip.

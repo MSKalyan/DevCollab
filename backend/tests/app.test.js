@@ -15,6 +15,15 @@ if (!USE_LIVE) {
 }
 
 const app = await import("../app.js").then((m) => m.default);
+// Tests never send real mail: the OTP round-trip reads the code from the dev
+// outbox. app.js re-runs dotenv.config(), which repopulates SMTP_HOST from .env,
+// so it is deleted after the import (same as tests/passwordReset.test.js).
+delete process.env.SMTP_HOST;
+process.env.AUTH_RATE_LIMIT_MAX = "1000";
+
+const { registerPendingUser, registerVerifiedUser, latestVerificationCode } = await import(
+  "./helpers/authFlow.js"
+);
 
 // Health check should always work without a database.
 describe("GET /api/health", () => {
@@ -60,35 +69,35 @@ maybe("Auth + projects smoke (pg-mem or DATABASE_URL_TEST)", () => {
     process.env.DATABASE_URL = TEST_DB;
   });
 
-  test("registers and refreshes the session", async () => {
-    const email = `test_${Date.now()}@example.com`;
-    const reg = await request(app)
-      .post("/api/auth/register")
-      .send({ name: "Tester", email, password: "password123" });
-    assert.equal(reg.status, 201);
-    cookies = reg.headers["set-cookie"];
-    assert.ok(cookies, "auth cookies set");
+  test("registers the verified round-trip and refreshes the session", async () => {
+    const email = `test_${Date.now()}_${Math.random().toString(16).slice(2)}@example.com`;
+    const pending = await registerPendingUser({ name: "Tester", email });
+    // Registration alone must not start a session.
+    assert.equal(pending.response.body.verification_required, true);
+    assert.equal(pending.response.body.data.email, email);
+    assert.equal(pending.response.body.success, true);
+
+    const code = await latestVerificationCode(email);
+    const verify = await request(app).post("/api/auth/verify-email").send({ email, code });
+    assert.equal(verify.status, 200);
+    cookies = verify.headers["set-cookie"];
+    assert.ok(cookies, "verification issues session cookies");
 
     const me = await request(app).get("/api/auth/me").set("Cookie", cookies);
     assert.equal(me.status, 200);
     assert.equal(me.body.name, "Tester");
+    assert.equal(me.body.email, email);
+    assert.equal(me.body.email_verified, true);
+    assert.equal(me.body.has_password, true);
   });
 
   test("contact request appears in the recipient's notifications", async () => {
     const { getUserByEmail } = await import("../models/userModel.js");
     const emailA = `notif_a_${Date.now()}@example.com`;
-    const regA = await request(app)
-      .post("/api/auth/register")
-      .send({ name: "Notif A", email: emailA, password: "password123" });
-    assert.equal(regA.status, 201);
-    const cookiesA = regA.headers["set-cookie"];
+    const { cookies: cookiesA } = await registerVerifiedUser({ name: "Notif A", email: emailA });
 
     const emailB = `notif_b_${Date.now()}@example.com`;
-    const regB = await request(app)
-      .post("/api/auth/register")
-      .send({ name: "Notif B", email: emailB, password: "password123" });
-    assert.equal(regB.status, 201);
-    const cookiesB = regB.headers["set-cookie"];
+    const { cookies: cookiesB } = await registerVerifiedUser({ name: "Notif B", email: emailB });
 
     const a = await getUserByEmail(emailA);
     assert.ok(a, "user A created");
@@ -111,15 +120,9 @@ maybe("Auth + projects smoke (pg-mem or DATABASE_URL_TEST)", () => {
   test("accepted contact request opens a chat with message exchange", async () => {
     const { getUserByEmail } = await import("../models/userModel.js");
     const emailA = `chat_a_${Date.now()}@example.com`;
-    const regA = await request(app)
-      .post("/api/auth/register")
-      .send({ name: "Chat A", email: emailA, password: "password123" });
-    const cookiesA = regA.headers["set-cookie"];
+    const { cookies: cookiesA } = await registerVerifiedUser({ name: "Chat A", email: emailA });
     const emailB = `chat_b_${Date.now()}@example.com`;
-    const regB = await request(app)
-      .post("/api/auth/register")
-      .send({ name: "Chat B", email: emailB, password: "password123" });
-    const cookiesB = regB.headers["set-cookie"];
+    const { cookies: cookiesB } = await registerVerifiedUser({ name: "Chat B", email: emailB });
 
     const a = await getUserByEmail(emailA);
     assert.ok(a, "user A created");
@@ -169,15 +172,9 @@ maybe("Auth + projects smoke (pg-mem or DATABASE_URL_TEST)", () => {
   test("recipient can reject a contact request", async () => {
     const { getUserByEmail } = await import("../models/userModel.js");
     const emailA = `rej_a_${Date.now()}@example.com`;
-    const regA = await request(app)
-      .post("/api/auth/register")
-      .send({ name: "Rej A", email: emailA, password: "password123" });
-    const cookiesA = regA.headers["set-cookie"];
+    const { cookies: cookiesA } = await registerVerifiedUser({ name: "Rej A", email: emailA });
     const emailB = `rej_b_${Date.now()}@example.com`;
-    const regB = await request(app)
-      .post("/api/auth/register")
-      .send({ name: "Rej B", email: emailB, password: "password123" });
-    const cookiesB = regB.headers["set-cookie"];
+    const { cookies: cookiesB } = await registerVerifiedUser({ name: "Rej B", email: emailB });
 
     const a = await getUserByEmail(emailA);
     await request(app)

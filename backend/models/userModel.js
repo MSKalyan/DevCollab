@@ -1,4 +1,5 @@
-import pool from './db.js';
+import pool from "./db.js";
+import { normalizeEmail } from "../utils/email.js";
 
 export const getUserProfile = async (userId) => {
   const result = await pool.query(
@@ -9,28 +10,76 @@ export const getUserProfile = async (userId) => {
   return result.rows[0];
 };
 
+// Addresses are stored lower-cased, but legacy rows may not be, so the lookup is
+// case-insensitive on both sides.
 export const getUserByEmail = async (email) => {
   const result = await pool.query(
-    'SELECT * FROM users WHERE email = $1',
-    [email]
+    "SELECT * FROM users WHERE LOWER(email) = LOWER($1)",
+    [normalizeEmail(email)]
   );
   return result.rows[0] || null;
 };
 
 export const getUserById = async (userId) => {
+  const result = await pool.query("SELECT * FROM users WHERE id = $1", [userId]);
+  return result.rows[0] || null;
+};
+
+export const getUserByGoogleId = async (googleId) => {
+  const result = await pool.query("SELECT * FROM users WHERE google_id = $1", [googleId]);
+  return result.rows[0] || null;
+};
+
+// Email/password and OAuth accounts are created through this one door so the
+// verification flags cannot drift between the two paths.
+export const createUser = async ({
+  name,
+  email,
+  password = null,
+  emailVerified = false,
+  googleId = null,
+  role = "user",
+}) => {
   const result = await pool.query(
-    'SELECT * FROM users WHERE id = $1',
+    `INSERT INTO users (name, email, password, email_verified, email_verified_at, google_id, created_at, role)
+     VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)
+     RETURNING *`,
+    [
+      name,
+      normalizeEmail(email),
+      password,
+      emailVerified,
+      emailVerified ? new Date() : null,
+      googleId,
+      role,
+    ]
+  );
+  return result.rows[0];
+};
+
+// Marks the address confirmed. Idempotent: re-running keeps the first
+// verification timestamp rather than moving it.
+export const markEmailVerified = async (userId) => {
+  const result = await pool.query(
+    `UPDATE users
+     SET email_verified = TRUE,
+         email_verified_at = COALESCE(email_verified_at, NOW())
+     WHERE id = $1
+     RETURNING *`,
     [userId]
   );
   return result.rows[0] || null;
 };
 
-export const createUser = async (name, email, password) => {
+// Links a Google identity to an existing account (matched by email) so the user
+// can sign in either way from then on. The unique index on google_id rejects a
+// subject already bound to someone else.
+export const linkGoogleAccount = async (userId, googleId) => {
   const result = await pool.query(
-    'INSERT INTO users (name, email, password, created_at, role) VALUES ($1, $2, $3, NOW(), $4) RETURNING *',
-    [name, email, password, 'user']
+    `UPDATE users SET google_id = $2 WHERE id = $1 AND google_id IS NULL RETURNING *`,
+    [userId, googleId]
   );
-  return result.rows[0];
+  return result.rows[0] || null;
 };
 
 export const updateUserNameAndPassword = async (userId, name, hashedPassword) => {

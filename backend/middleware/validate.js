@@ -47,6 +47,25 @@ export function validateResetPassword({ token, password }) {
   return errors;
 }
 
+export function validateVerifyEmail({ email, code }) {
+  const errors = [];
+  if (!email || typeof email !== "string" || !EMAIL_RE.test(email.trim())) {
+    errors.push("A valid email is required.");
+  }
+  if (!code || typeof code !== "string" || !/^\d{6}$/.test(code.trim())) {
+    errors.push("Enter the 6-digit code from your email.");
+  }
+  return errors;
+}
+
+export function validateEmailOnly({ email }) {
+  const errors = [];
+  if (!email || typeof email !== "string" || !EMAIL_RE.test(email.trim())) {
+    errors.push("A valid email is required.");
+  }
+  return errors;
+}
+
 export function validateProject({ title, description }) {
   const errors = [];
   if (!title || typeof title !== "string" || title.trim().length < 3) {

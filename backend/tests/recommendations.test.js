@@ -17,8 +17,12 @@ process.env.GITHUB_TOKEN_ENCRYPTION_KEY =
   process.env.GITHUB_TOKEN_ENCRYPTION_KEY || "test-encryption-key-do-not-use-in-prod";
 
 const app = await import("../app.js").then((m) => m.default);
+// app.js re-runs dotenv.config(), which repopulates SMTP_HOST from .env; delete
+// it after the import so the verification code lands in the dev outbox.
+delete process.env.SMTP_HOST;
+
+const { uniqueEmail, registerVerifiedUser } = await import("./helpers/authFlow.js");
 const { default: pool } = await import("../models/db.js");
-const { createUser } = await import("../models/userModel.js");
 const { upsertGithubAccount } = await import("../models/githubAccountModel.js");
 const { upsertGithubIssue } = await import("../models/githubIssueModel.js");
 
@@ -106,16 +110,15 @@ async function seedCorpus() {
     repoLanguage: "Python",
     commentsCount: 0,
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    isPullRequest: true,
   });
 }
 
 async function registerAndGetCookies() {
-  const res = await request(app)
-    .post("/api/auth/register")
-    .send({ name: "Rec Tester", email: `rec_${Date.now()}@example.com`, password: "password123" });
-  return res.headers["set-cookie"];
+  const { cookies } = await registerVerifiedUser({
+    name: "Rec Tester",
+    email: uniqueEmail("rec"),
+  });
+  return cookies;
 }
 
 async function connectGithub(cookies, userId, githubId, login) {

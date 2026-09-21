@@ -20,27 +20,15 @@ const app = await import("../app.js").then((m) => m.default);
 // Delete it after the import so the mailer falls back to the dev outbox and the
 // tests never attempt a real send.
 delete process.env.SMTP_HOST;
-const { getDevOutbox } = await import("../utils/mailer.js");
+import { uniqueEmail, latestResetToken, registerVerifiedUser } from "./helpers/authFlow.js";
 
 const TEST_DB = process.env.DATABASE_URL_TEST || "pg-mem:";
 
-// Extracts the raw token from the reset link captured in the dev outbox.
-async function latestResetTokenFor(email) {
-  const mail = [...getDevOutbox()].reverse().find((m) => m.to === email);
-  assert.ok(mail, `reset email captured for ${email}`);
-  const match = mail.resetUrl.match(/[?&]token=([a-f0-9]+)/);
-  assert.ok(match, "reset url carries a token");
-  return match[1];
-}
-
+// The reset link lands in the same dev outbox as verification mail; the shared
+// helper selects by `resetUrl`, so the two flows never collide.
 async function registerUser(prefix) {
-  const email = `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}@example.com`;
-  const res = await request(app)
-    .post("/api/auth/register")
-    .send({ name: "Reset Tester", email, password: "password123" });
-  assert.equal(res.status, 201);
-  assert.ok(res.headers["set-cookie"], "auth cookies set on register");
-  return { email, cookies: res.headers["set-cookie"] };
+  const { email, cookies } = await registerVerifiedUser({ name: "Reset Tester", email: uniqueEmail(prefix) });
+  return { email, cookies };
 }
 
 describe("POST /api/auth/forgot-password validation", () => {
@@ -94,7 +82,7 @@ describe("password reset flow", () => {
     // The response must not echo the token — that would leak it to anyone.
     assert.equal(forgot.body.resetUrl, undefined);
 
-    const token = await latestResetTokenFor(email);
+    const token = await latestResetToken(email);
 
     const reset = await request(app)
       .post("/api/auth/reset-password")
@@ -118,7 +106,7 @@ describe("password reset flow", () => {
     const { email } = await registerUser("reset_once");
 
     await request(app).post("/api/auth/forgot-password").send({ email });
-    const token = await latestResetTokenFor(email);
+    const token = await latestResetToken(email);
 
     const first = await request(app)
       .post("/api/auth/reset-password")
@@ -144,7 +132,7 @@ describe("password reset flow", () => {
     assert.equal(beforeMe.status, 200);
 
     await request(app).post("/api/auth/forgot-password").send({ email });
-    const token = await latestResetTokenFor(email);
+    const token = await latestResetToken(email);
     await request(app)
       .post("/api/auth/reset-password")
       .send({ token, password: "rotatedPassword1" });
@@ -159,7 +147,7 @@ describe("password reset flow", () => {
     const { email } = await registerUser("reset_expired");
 
     await request(app).post("/api/auth/forgot-password").send({ email });
-    const token = await latestResetTokenFor(email);
+    const token = await latestResetToken(email);
 
     // Age the token past its expiry.
     const { getUserByEmail } = await import("../models/userModel.js");
@@ -190,7 +178,7 @@ describe("password reset flow", () => {
     const { email } = await registerUser("reset_supersede");
 
     await request(app).post("/api/auth/forgot-password").send({ email });
-    const staleToken = await latestResetTokenFor(email);
+    const staleToken = await latestResetToken(email);
 
     await request(app).post("/api/auth/forgot-password").send({ email });
     const { getUserByEmail } = await import("../models/userModel.js");
